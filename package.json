@@ -1,0 +1,25 @@
+{
+  "name": "3d-viewer",
+  "version": "1.0.0",
+  "description": "Super fast browser based 3D viewer",
+  "main": "dist/bundle.js",
+  "author": "Chris ter Beke <ctbeke@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@types/three": "^0.84.34",
+    "three": "^0.88.0",
+    "underscore": "^1.8.3"
+  },
+  "scripts": {
+    "build": "yarn clean && ./node_modules/.bin/tsc && mkdir dist && ./node_modules/.bin/browserify build/index.js -o dist/bundle.js",
+    "watch": "yarn watch-typescript & yarn watch-js",
+    "watch-js": "./node_modules/.bin/watchify build/index.js -o dist/bundle.js",
+    "watch-typescript": "./node_modules/.bin/tsc --watch",
+    "clean": "rm -rf build & rm -rf dist"
+  },
+  "devDependencies": {
+    "browserify": "^14.5.0",
+    "typescript": "^2.6.2",
+    "watchify": "^3.9.0"
+  }
+}
