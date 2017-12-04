@@ -43,7 +43,12 @@ export class Viewer {
         this.onRender = new Signal()
         this.onReady = new Signal()
     }
-    
+
+    /**
+     * Initialize the viewer on a target canvas element.
+     * The reason this is not done in the constructor is to allow for signal binding before initializing.
+     * @param {HTMLCanvasElement} canvas
+     */
     public init (canvas: HTMLCanvasElement): void {
         
         // set the canvas element to start rendering
