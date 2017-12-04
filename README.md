@@ -12,3 +12,6 @@ in most IDEs. We try to be as object oriented as possible.
 ## Contributions
 Please submit your contributions via a pull request on the `develop` branch.
 We only merge to `master` just before creating a new stable release.
+
+## License
+Please check the [LICENSE](./LICENSE) file for details.
