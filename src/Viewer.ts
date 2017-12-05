@@ -64,10 +64,6 @@ export class Viewer {
         
         // add the camera
         this._sceneManager.addCamera(this._cameraManager.getCamera())
-        
-        // add a temporary light source
-        const ambientLight = new THREE.AmbientLight(0x909090)
-        this._sceneManager.addLight(ambientLight)
 
         // finished with initializing
         this.onReady.emit()

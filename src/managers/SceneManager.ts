@@ -28,6 +28,11 @@ export class SceneManager {
     constructor (viewer: Viewer) {
         this._viewer = viewer
         this._sceneRootNode = new SceneNode()
+        
+        // add lighting
+        this._addAmbientLight(new THREE.Color(0x909090))
+        this._addDirectionalLight(new THREE.Vector3(-500, -700, -400), new THREE.Color(0xdddddd), 0.2)
+        this._addShadowedLight(new THREE.Vector3(500, 700, 400), new THREE.Color(0xffffff), 0.9)
     }
 
     /**
@@ -100,7 +105,6 @@ export class SceneManager {
      * @param {Light} light
      */
     public addLight (light: THREE.Light) {
-        // TODO: move to scene node
         this._sceneRootNode.getScene().add(light)
     }
 
@@ -136,5 +140,46 @@ export class SceneManager {
         }
         
         return nodeToFind
+    }
+
+    /**
+     * Add a spotlight with shadow casting to the scene.
+     * @param {Vector3} position
+     * @param {Color} color
+     * @param intensity
+     * @private
+     */
+    private _addShadowedLight (position: THREE.Vector3, color: THREE.Color, intensity): void {
+        const spotLight = new THREE.SpotLight(color, intensity)
+        spotLight.position.set(position.x, position.y, position.z)
+        spotLight.castShadow = true
+        spotLight.shadow.bias = 0.00001
+        spotLight.shadow.mapSize.width = 2048
+        spotLight.shadow.mapSize.height = 2048
+        this.addLight(spotLight)
+    }
+
+    /**
+     * Add a directional light source to the scene.
+     * @param {Vector3} position
+     * @param {Color} color
+     * @param intensity
+     * @private
+     */
+    private _addDirectionalLight (position: THREE.Vector3, color: THREE.Color, intensity): void {
+        const directionalLight = new THREE.DirectionalLight(color, intensity)
+        directionalLight.position.set(position.x, position.y, position.z)
+        directionalLight.castShadow = false
+        this.addLight(directionalLight)
+    }
+
+    /**
+     * Add an ambient light source to the scene.
+     * @param {Color} color
+     * @private
+     */
+    private _addAmbientLight (color: THREE.Color): void {
+        const ambientLight = new THREE.AmbientLight(color)
+        this.addLight(ambientLight)
     }
 }

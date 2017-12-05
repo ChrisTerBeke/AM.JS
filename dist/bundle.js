@@ -1,8 +1,6 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
-// three.js
-var THREE = require("THREE");
 // utils
 var Signal_1 = require("./utils/Signal");
 // managers
@@ -40,9 +38,6 @@ var Viewer = /** @class */ (function () {
         this._buildVolumeManager = BuildVolumeManager_1.BuildVolumeManager.getInstance(this);
         // add the camera
         this._sceneManager.addCamera(this._cameraManager.getCamera());
-        // add a temporary light source
-        var ambientLight = new THREE.AmbientLight(0x909090);
-        this._sceneManager.addLight(ambientLight);
         // finished with initializing
         this.onReady.emit();
     };
@@ -120,7 +115,7 @@ var Viewer = /** @class */ (function () {
 }());
 exports.Viewer = Viewer;
 
-},{"./managers/AnimationManager":3,"./managers/BuildVolumeManager":4,"./managers/CameraManager":5,"./managers/RenderManager":6,"./managers/SceneManager":7,"./utils/Signal":13,"THREE":14}],2:[function(require,module,exports){
+},{"./managers/AnimationManager":3,"./managers/BuildVolumeManager":4,"./managers/CameraManager":5,"./managers/RenderManager":6,"./managers/SceneManager":7,"./utils/Signal":13}],2:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -130,7 +125,7 @@ window['THREE'] = THREE;
 // make sure Viewer is available in browser context
 window['Viewer'] = Viewer_1.Viewer;
 
-},{"./Viewer":1,"three":15}],3:[function(require,module,exports){
+},{"./Viewer":1,"three":14}],3:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var AnimationManager = /** @class */ (function () {
@@ -223,7 +218,7 @@ var CameraManager = /** @class */ (function () {
             console.error("Camera type " + type + " is not a valid camera type.");
         }
         // reset position and target
-        this.setCameraPosition(new THREE.Vector3(100, 100, 100));
+        this.setCameraPosition(new THREE.Vector3(50, 50, 50));
         this.setCameraTarget(new THREE.Vector3(0, 0, 0));
         // trigger a render update
         this._viewer.onRender.emit({
@@ -268,7 +263,7 @@ var CameraManager = /** @class */ (function () {
 }());
 exports.CameraManager = CameraManager;
 
-},{"./RenderManager":6,"three":15}],6:[function(require,module,exports){
+},{"./RenderManager":6,"three":14}],6:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -348,9 +343,10 @@ var RenderManager = /** @class */ (function () {
 }());
 exports.RenderManager = RenderManager;
 
-},{"three":15}],7:[function(require,module,exports){
+},{"three":14}],7:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
+var THREE = require("three");
 var SceneNode_1 = require("../nodes/SceneNode");
 var SimpleMeshFactory_1 = require("../nodes/SimpleMeshFactory");
 var RenderManager_1 = require("./RenderManager");
@@ -358,6 +354,10 @@ var SceneManager = /** @class */ (function () {
     function SceneManager(viewer) {
         this._viewer = viewer;
         this._sceneRootNode = new SceneNode_1.SceneNode();
+        // add lighting
+        this._addAmbientLight(new THREE.Color(0x909090));
+        this._addDirectionalLight(new THREE.Vector3(-500, -700, -400), new THREE.Color(0xdddddd), 0.2);
+        this._addShadowedLight(new THREE.Vector3(500, 700, 400), new THREE.Color(0xffffff), 0.9);
     }
     SceneManager.getInstance = function (viewerInstance) {
         // create instance if not yet existing
@@ -427,7 +427,6 @@ var SceneManager = /** @class */ (function () {
      * @param {Light} light
      */
     SceneManager.prototype.addLight = function (light) {
-        // TODO: move to scene node
         this._sceneRootNode.getScene().add(light);
     };
     /**
@@ -462,11 +461,49 @@ var SceneManager = /** @class */ (function () {
         }
         return nodeToFind;
     };
+    /**
+     * Add a spotlight with shadow casting to the scene.
+     * @param {Vector3} position
+     * @param {Color} color
+     * @param intensity
+     * @private
+     */
+    SceneManager.prototype._addShadowedLight = function (position, color, intensity) {
+        var spotLight = new THREE.SpotLight(color, intensity);
+        spotLight.position.set(position.x, position.y, position.z);
+        spotLight.castShadow = true;
+        spotLight.shadow.bias = 0.00001;
+        spotLight.shadow.mapSize.width = 2048;
+        spotLight.shadow.mapSize.height = 2048;
+        this.addLight(spotLight);
+    };
+    /**
+     * Add a directional light source to the scene.
+     * @param {Vector3} position
+     * @param {Color} color
+     * @param intensity
+     * @private
+     */
+    SceneManager.prototype._addDirectionalLight = function (position, color, intensity) {
+        var directionalLight = new THREE.DirectionalLight(color, intensity);
+        directionalLight.position.set(position.x, position.y, position.z);
+        directionalLight.castShadow = false;
+        this.addLight(directionalLight);
+    };
+    /**
+     * Add an ambient light source to the scene.
+     * @param {Color} color
+     * @private
+     */
+    SceneManager.prototype._addAmbientLight = function (color) {
+        var ambientLight = new THREE.AmbientLight(color);
+        this.addLight(ambientLight);
+    };
     return SceneManager;
 }());
 exports.SceneManager = SceneManager;
 
-},{"../nodes/SceneNode":11,"../nodes/SimpleMeshFactory":12,"./RenderManager":6}],8:[function(require,module,exports){
+},{"../nodes/SceneNode":11,"../nodes/SimpleMeshFactory":12,"./RenderManager":6,"three":14}],8:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var NodeInterface_1 = require("./NodeInterface");
@@ -634,7 +671,7 @@ var Mesh = /** @class */ (function (_super) {
 }(THREE.Mesh));
 exports.Mesh = Mesh;
 
-},{"./BaseNode":8,"./NodeInterface":10,"three":15}],10:[function(require,module,exports){
+},{"./BaseNode":8,"./NodeInterface":10,"three":14}],10:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 /**
@@ -691,7 +728,7 @@ var SceneNode = /** @class */ (function (_super) {
 }(BaseNode_1.BaseNode));
 exports.SceneNode = SceneNode;
 
-},{"./BaseNode":8,"./NodeInterface":10,"three":15}],12:[function(require,module,exports){
+},{"./BaseNode":8,"./NodeInterface":10,"three":14}],12:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -714,7 +751,7 @@ var SimpleMeshFactory = /** @class */ (function () {
 }());
 exports.SimpleMeshFactory = SimpleMeshFactory;
 
-},{"./MeshNode":9,"three":15}],13:[function(require,module,exports){
+},{"./MeshNode":9,"three":14}],13:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var Signal = /** @class */ (function () {
@@ -45799,6 +45836,4 @@ exports.Signal = Signal;
 
 })));
 
-},{}],15:[function(require,module,exports){
-arguments[4][14][0].apply(exports,arguments)
-},{"dup":14}]},{},[2]);
+},{}]},{},[2]);

@@ -60,7 +60,7 @@ export class CameraManager {
         }
         
         // reset position and target
-        this.setCameraPosition(new THREE.Vector3(100, 100, 100))
+        this.setCameraPosition(new THREE.Vector3(50, 50, 50))
         this.setCameraTarget(new THREE.Vector3(0, 0, 0))
         
         // trigger a render update
