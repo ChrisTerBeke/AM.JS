@@ -1,9 +1,9 @@
 'use strict'
 
 import * as THREE from 'three'
-import { BaseNode } from './BaseNode'
-import { NODE_TYPES} from './NodeInterface'
+import { Node, NODE_TYPES } from './NodeInterface'
 import { RenderOptions } from '../managers/RenderManager'
+import { Signal } from '../utils/Signal'
 
 export enum TRANSFORM_MODES {
     TRANSLATE = 'translate',
@@ -11,43 +11,13 @@ export enum TRANSFORM_MODES {
     SCALE = 'scale'
 }
 
-export class MeshNode extends BaseNode {
+export class MeshNode extends THREE.Mesh implements Node {
 
+    public geometry: THREE.Geometry // override for typing
+    public material: THREE.MeshPhongMaterial // override with specific material type for typing
+    
+    // node
     protected _nodeType: NODE_TYPES = NODE_TYPES.MESH
-    private _mesh: Mesh
-    
-    constructor (geometry?: THREE.Geometry) {
-        super()
-        this._mesh = new Mesh(geometry)
-    }
-    
-    public getId (): string {
-        return this._mesh.uuid
-    }
-    
-    public getGeometry (): THREE.Geometry {
-        return this._mesh.geometry
-    }
-    
-    public getMesh (): THREE.Mesh {
-        return this._mesh
-    }
-    
-    public setColor (color: THREE.Color): void {
-        this._mesh.setColor(color)
-        this._onPropertyChanged('color', color)
-    }
-    
-    protected _render (renderOptions?: RenderOptions) {
-        this._mesh.render(renderOptions)
-    }
-    
-    private _onPropertyChanged (propertyName: string, value: any) {
-        this.onPropertyChanged.emit({ nodeId: this.getId(), propertyName, value })
-    }
-}
-
-export class Mesh extends THREE.Mesh {
     
     // transforms
     private _selected: boolean // TODO: move to MeshNode?
@@ -58,21 +28,19 @@ export class Mesh extends THREE.Mesh {
     private _originalBounds: THREE.Box3
     private _currentBounds: THREE.Box3
     private _modelHeight: number
-    
-    // color
-    public geometry: THREE.Geometry // override for typing
-    public material: THREE.MeshPhongMaterial // override with specific material type for typing
+
+    // properties
     private _baseColor: THREE.Color
     private _selectionColor: THREE.Color
+
+    // event fired when property changes
+    public onPropertyChanged: Signal<any> = new Signal()
     
     // rendering
     private _isDirty: boolean
     
     constructor (geometry?: THREE.Geometry) {
         super()
-        
-        // extend THREE.Mesh with new type
-        this.type = 'MeshNode'
         
         // geometry from existing or create new
         this.geometry = geometry || new THREE.Geometry()
@@ -97,6 +65,30 @@ export class Mesh extends THREE.Mesh {
         this._isDirty = true
     }
 
+    public getId (): string {
+        return this.uuid
+    }
+    
+    public getType (): NODE_TYPES {
+        return this._nodeType
+    }
+
+    public addChild (node: THREE.Object3D): void {
+        this.add(node)
+    }
+
+    public removeChild (node: THREE.Object3D): void {
+        this.remove(node)
+    }
+
+    public getChildren (): Node[] {
+        return this.children
+    }
+
+    public getParent (): Node {
+        return this.parent
+    }
+
     /**
      * Get the base color of the mesh.
      * @returns {Color}
@@ -111,7 +103,7 @@ export class Mesh extends THREE.Mesh {
      */
     public setColor (color: THREE.Color): void {
         this._baseColor = color
-        this._isDirty = true
+        this._propertyChanged('color', color)
     }
 
     /**
@@ -122,22 +114,33 @@ export class Mesh extends THREE.Mesh {
         return this._selected
     }
 
-    /**
-     * Apply correct styles with each render cycle.
-     */
     public render (renderOptions?: RenderOptions) {
         
+
+        // render self
+        this._render(renderOptions)
+
+        // render children if existing
+        for (let child of this.getChildren()) {
+            if (child.render) {
+                child.render(renderOptions)
+            }
+        }
+    }
+
+    protected _render (renderOptions?: RenderOptions) {
+        
         // don't re-render anything when we're sure nothing changed
-        if (!this._isDirty && renderOptions.source === `meshNode_${this.uuid}`) {
+        if (!this._isDirty && renderOptions.source === `meshNode_${this.getId()}`) {
             return
         }
-        
+
         if (this._selected) {
             this.material.color = this._selectionColor
         } else {
             this.material.color = this._baseColor
         }
-        
+
         this._isDirty = false
     }
     
@@ -149,5 +152,10 @@ export class Mesh extends THREE.Mesh {
     
     private _calculateModelHeight () {
         return this._currentBounds.max.z - this._currentBounds.min.z
+    }
+
+    private _propertyChanged (propertyName: string, value: any) {
+        this._isDirty = true
+        this.onPropertyChanged.emit({ nodeId: this.getId(), propertyName, value })
     }
 }

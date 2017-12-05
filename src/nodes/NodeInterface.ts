@@ -1,5 +1,6 @@
 'use strict'
 
+import * as THREE from 'three'
 import { RenderOptions } from '../managers/RenderManager'
 
 /**
@@ -30,16 +31,28 @@ export interface Node {
     getType(): NODE_TYPES
 
     /**
+     * Get the parent node.
+     * @returns {Node}
+     */
+    getParent(): Node | THREE.Object3D | null
+
+    /**
      * Get child nodes.
      * @returns {Node[]}
      */
-    getChildren(): Node[]
+    getChildren(): Node[] | THREE.Object3D[]
 
-    /**
+        /**
      * Add a child node.
      * @param {Node} childNode
      */
-    addChild(childNode: Node)
+    addChild(childNode: Node | THREE.Object3D): void
+
+    /**
+     * Remove a child node.
+     * @param {Node} childNode
+     */
+    removeChild(childNode: Node | THREE.Object3D): void
 
     /**
      * Re-render this node

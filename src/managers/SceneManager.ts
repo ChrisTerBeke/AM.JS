@@ -53,8 +53,8 @@ export class SceneManager {
     public addMesh (meshNode: MeshNode, parentNodeId?: string): MeshNode {
         
         // TODO: create helper function or even automatically
-        const offset = meshNode.getMesh().geometry.center()
-        meshNode.getMesh().position.sub(offset)
+        const offset = meshNode.geometry.center()
+        meshNode.position.sub(offset)
         
         // when the mesh node changes, the renderer should be signalled to re-render
         meshNode.onPropertyChanged.connect(this._onMeshNodePropertyChanged.bind(this))
@@ -70,10 +70,10 @@ export class SceneManager {
                 parentNode.addChild(meshNode)
             }
         } else {
+            console.log('this._sceneRootNode', this._sceneRootNode)
             this._sceneRootNode.addChild(meshNode)
         }
         
-        // make sure the new object gets rendered
         this._viewer.onRender.emit({
             type: RENDER_TYPES.MESH,
             source: SceneManager.name
@@ -89,6 +89,28 @@ export class SceneManager {
     public addCube (parentNodeId?: string) {
         const cube = SimpleMeshFactory.createCube()
         return this.addMesh(cube, parentNodeId)
+    }
+
+    /**
+     * Remove a mesh node from the scene and all other relations.
+     * @param {string} nodeId
+     */
+    public removeMeshNode (nodeId: string) {
+        
+        // find the meshNode by ID
+        let meshNode = this._findNodeById(this._sceneRootNode, nodeId)
+        
+        // unload the geometry
+        meshNode.geometry.dispose()
+        
+        // remove the actual mesh from the scene
+        this._sceneRootNode.getScene().remove(meshNode)
+        
+        // disconnect the signal
+        meshNode.onPropertyChanged.disconnect(this._onMeshNodePropertyChanged)
+        
+        // make sure the mesh node is not hanging around in memory anymore
+        meshNode = undefined
     }
 
     /**
@@ -127,17 +149,14 @@ export class SceneManager {
      * @returns {Node}
      * @private
      */
-    private _findNodeById (parentNode: Node, nodeId: string): Node | null {
+    private _findNodeById (parentNode: THREE.Object3D, nodeId: string): MeshNode | null {
         let nodeToFind = null
         
-        // loop over all children and children's children to find the node
-        for (let child of parentNode.getChildren()) {
-            if (child.getId() === nodeId) {
+        parentNode.traverse(child => {
+            if (child.uuid === nodeId) {
                 nodeToFind = child
-            } else {
-                nodeToFind = this._findNodeById(child, nodeId)
             }
-        }
+        })
         
         return nodeToFind
     }

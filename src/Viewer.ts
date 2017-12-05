@@ -1,8 +1,5 @@
 'use strict'
 
-// three.js
-import * as THREE from 'THREE'
-
 // utils
 import { Signal } from './utils/Signal'
 
@@ -146,5 +143,13 @@ export class Viewer {
      */
     public addCube (parentNodeId?: string): MeshNode {
         return this._sceneManager.addCube(parentNodeId)
+    }
+
+    /**
+     * Remove a mesh node from the scene.
+     * @param {string} nodeId
+     */
+    public removeMeshNode (nodeId: string): void {
+        this._sceneManager.removeMeshNode(nodeId)
     }
 }

@@ -1,18 +1,15 @@
 'use strict'
 
 import * as THREE from 'three'
-import { BaseNode } from './BaseNode'
-import { NODE_TYPES } from './NodeInterface'
-import { MeshNode } from './MeshNode'
+import { Node, NODE_TYPES } from './NodeInterface'
+import { RenderOptions } from '../managers/RenderManager'
 
-export class SceneNode extends BaseNode {
+export class SceneNode extends THREE.Scene implements Node {
 
     protected _nodeType: NODE_TYPES = NODE_TYPES.SCENE
-    private _scene: THREE.Scene
-    
-    constructor () {
-        super()
-        this._scene = new THREE.Scene()
+
+    public getId (): string {
+        return this.uuid
     }
 
     /**
@@ -20,15 +17,34 @@ export class SceneNode extends BaseNode {
      * @returns {Scene}
      */
     public getScene (): THREE.Scene {
-        return this._scene
+        return this
     }
 
-    /**
-     * Add a child mesh.
-     * @param {MeshNode} node
-     */
-    public addChild (node: MeshNode): void {
-        super.addChild(node)
-        this._scene.add(node.getMesh())
+    public getType (): NODE_TYPES {
+        return this._nodeType
+    }
+
+    public addChild (node: THREE.Object3D): void {
+        this.add(node)
+    }
+
+    public removeChild (node: THREE.Object3D): void {
+        this.remove(node)
+    }
+
+    public getChildren (): Node[] {
+        return this.children
+    }
+
+    public getParent (): Node {
+        return this.parent
+    }
+
+    public render (renderOptions?: RenderOptions) {
+        for (let child of this.getChildren()) {
+            if (child.render) {
+                child.render(renderOptions)
+            }
+        }
     }
 }

@@ -111,11 +111,18 @@ var Viewer = /** @class */ (function () {
     Viewer.prototype.addCube = function (parentNodeId) {
         return this._sceneManager.addCube(parentNodeId);
     };
+    /**
+     * Remove a mesh node from the scene.
+     * @param {string} nodeId
+     */
+    Viewer.prototype.removeMeshNode = function (nodeId) {
+        this._sceneManager.removeMeshNode(nodeId);
+    };
     return Viewer;
 }());
 exports.Viewer = Viewer;
 
-},{"./managers/AnimationManager":3,"./managers/BuildVolumeManager":4,"./managers/CameraManager":5,"./managers/RenderManager":6,"./managers/SceneManager":7,"./utils/Signal":13}],2:[function(require,module,exports){
+},{"./managers/AnimationManager":3,"./managers/BuildVolumeManager":4,"./managers/CameraManager":5,"./managers/RenderManager":6,"./managers/SceneManager":7,"./utils/Signal":12}],2:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -125,7 +132,7 @@ window['THREE'] = THREE;
 // make sure Viewer is available in browser context
 window['Viewer'] = Viewer_1.Viewer;
 
-},{"./Viewer":1,"three":14}],3:[function(require,module,exports){
+},{"./Viewer":1,"three":13}],3:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var AnimationManager = /** @class */ (function () {
@@ -263,7 +270,7 @@ var CameraManager = /** @class */ (function () {
 }());
 exports.CameraManager = CameraManager;
 
-},{"./RenderManager":6,"three":14}],6:[function(require,module,exports){
+},{"./RenderManager":6,"three":13}],6:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -343,7 +350,7 @@ var RenderManager = /** @class */ (function () {
 }());
 exports.RenderManager = RenderManager;
 
-},{"three":14}],7:[function(require,module,exports){
+},{"three":13}],7:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -382,8 +389,8 @@ var SceneManager = /** @class */ (function () {
      */
     SceneManager.prototype.addMesh = function (meshNode, parentNodeId) {
         // TODO: create helper function or even automatically
-        var offset = meshNode.getMesh().geometry.center();
-        meshNode.getMesh().position.sub(offset);
+        var offset = meshNode.geometry.center();
+        meshNode.position.sub(offset);
         // when the mesh node changes, the renderer should be signalled to re-render
         meshNode.onPropertyChanged.connect(this._onMeshNodePropertyChanged.bind(this));
         // TODO: offset depending on build volume type
@@ -397,9 +404,9 @@ var SceneManager = /** @class */ (function () {
             }
         }
         else {
+            console.log('this._sceneRootNode', this._sceneRootNode);
             this._sceneRootNode.addChild(meshNode);
         }
-        // make sure the new object gets rendered
         this._viewer.onRender.emit({
             type: RenderManager_1.RENDER_TYPES.MESH,
             source: SceneManager.name
@@ -413,6 +420,22 @@ var SceneManager = /** @class */ (function () {
     SceneManager.prototype.addCube = function (parentNodeId) {
         var cube = SimpleMeshFactory_1.SimpleMeshFactory.createCube();
         return this.addMesh(cube, parentNodeId);
+    };
+    /**
+     * Remove a mesh node from the scene and all other relations.
+     * @param {string} nodeId
+     */
+    SceneManager.prototype.removeMeshNode = function (nodeId) {
+        // find the meshNode by ID
+        var meshNode = this._findNodeById(this._sceneRootNode, nodeId);
+        // unload the geometry
+        meshNode.geometry.dispose();
+        // remove the actual mesh from the scene
+        this._sceneRootNode.getScene().remove(meshNode);
+        // disconnect the signal
+        meshNode.onPropertyChanged.disconnect(this._onMeshNodePropertyChanged);
+        // make sure the mesh node is not hanging around in memory anymore
+        meshNode = undefined;
     };
     /**
      * Add a camera to the scene.
@@ -449,16 +472,11 @@ var SceneManager = /** @class */ (function () {
      */
     SceneManager.prototype._findNodeById = function (parentNode, nodeId) {
         var nodeToFind = null;
-        // loop over all children and children's children to find the node
-        for (var _i = 0, _a = parentNode.getChildren(); _i < _a.length; _i++) {
-            var child = _a[_i];
-            if (child.getId() === nodeId) {
+        parentNode.traverse(function (child) {
+            if (child.uuid === nodeId) {
                 nodeToFind = child;
             }
-            else {
-                nodeToFind = this._findNodeById(child, nodeId);
-            }
-        }
+        });
         return nodeToFind;
     };
     /**
@@ -503,47 +521,7 @@ var SceneManager = /** @class */ (function () {
 }());
 exports.SceneManager = SceneManager;
 
-},{"../nodes/SceneNode":11,"../nodes/SimpleMeshFactory":12,"./RenderManager":6,"three":14}],8:[function(require,module,exports){
-'use strict';
-Object.defineProperty(exports, "__esModule", { value: true });
-var NodeInterface_1 = require("./NodeInterface");
-var Signal_1 = require("../utils/Signal");
-var BaseNode = /** @class */ (function () {
-    function BaseNode() {
-        this._nodeType = NodeInterface_1.NODE_TYPES.NONE;
-        this._children = [];
-        // event fired when property changes
-        this.onPropertyChanged = new Signal_1.Signal();
-    }
-    BaseNode.prototype.getId = function () {
-        return 'none';
-    };
-    BaseNode.prototype.getType = function () {
-        return this._nodeType;
-    };
-    BaseNode.prototype.getChildren = function () {
-        return this._children;
-    };
-    BaseNode.prototype.addChild = function (childNode) {
-        this._children.push(childNode);
-    };
-    BaseNode.prototype.render = function (renderOptions) {
-        // render self
-        this._render(renderOptions);
-        // render children if existing
-        for (var _i = 0, _a = this._children; _i < _a.length; _i++) {
-            var child = _a[_i];
-            child.render(renderOptions);
-        }
-    };
-    BaseNode.prototype._render = function (renderOptions) {
-        // nothing here, should be implemented per node type
-    };
-    return BaseNode;
-}());
-exports.BaseNode = BaseNode;
-
-},{"../utils/Signal":13,"./NodeInterface":10}],9:[function(require,module,exports){
+},{"../nodes/SceneNode":10,"../nodes/SimpleMeshFactory":11,"./RenderManager":6,"three":13}],8:[function(require,module,exports){
 'use strict';
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
@@ -557,8 +535,8 @@ var __extends = (this && this.__extends) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
-var BaseNode_1 = require("./BaseNode");
 var NodeInterface_1 = require("./NodeInterface");
+var Signal_1 = require("../utils/Signal");
 var TRANSFORM_MODES;
 (function (TRANSFORM_MODES) {
     TRANSFORM_MODES["TRANSLATE"] = "translate";
@@ -569,38 +547,10 @@ var MeshNode = /** @class */ (function (_super) {
     __extends(MeshNode, _super);
     function MeshNode(geometry) {
         var _this = _super.call(this) || this;
+        // node
         _this._nodeType = NodeInterface_1.NODE_TYPES.MESH;
-        _this._mesh = new Mesh(geometry);
-        return _this;
-    }
-    MeshNode.prototype.getId = function () {
-        return this._mesh.uuid;
-    };
-    MeshNode.prototype.getGeometry = function () {
-        return this._mesh.geometry;
-    };
-    MeshNode.prototype.getMesh = function () {
-        return this._mesh;
-    };
-    MeshNode.prototype.setColor = function (color) {
-        this._mesh.setColor(color);
-        this._onPropertyChanged('color', color);
-    };
-    MeshNode.prototype._render = function (renderOptions) {
-        this._mesh.render(renderOptions);
-    };
-    MeshNode.prototype._onPropertyChanged = function (propertyName, value) {
-        this.onPropertyChanged.emit({ nodeId: this.getId(), propertyName: propertyName, value: value });
-    };
-    return MeshNode;
-}(BaseNode_1.BaseNode));
-exports.MeshNode = MeshNode;
-var Mesh = /** @class */ (function (_super) {
-    __extends(Mesh, _super);
-    function Mesh(geometry) {
-        var _this = _super.call(this) || this;
-        // extend THREE.Mesh with new type
-        _this.type = 'MeshNode';
+        // event fired when property changes
+        _this.onPropertyChanged = new Signal_1.Signal();
         // geometry from existing or create new
         _this.geometry = geometry || new THREE.Geometry();
         // set default material
@@ -621,34 +571,60 @@ var Mesh = /** @class */ (function (_super) {
         _this._isDirty = true;
         return _this;
     }
+    MeshNode.prototype.getId = function () {
+        return this.uuid;
+    };
+    MeshNode.prototype.getType = function () {
+        return this._nodeType;
+    };
+    MeshNode.prototype.addChild = function (node) {
+        this.add(node);
+    };
+    MeshNode.prototype.removeChild = function (node) {
+        this.remove(node);
+    };
+    MeshNode.prototype.getChildren = function () {
+        return this.children;
+    };
+    MeshNode.prototype.getParent = function () {
+        return this.parent;
+    };
     /**
      * Get the base color of the mesh.
      * @returns {Color}
      */
-    Mesh.prototype.getColor = function () {
+    MeshNode.prototype.getColor = function () {
         return this._baseColor;
     };
     /**
      * Set the base color of the mesh.
      * @param {Color} color
      */
-    Mesh.prototype.setColor = function (color) {
+    MeshNode.prototype.setColor = function (color) {
         this._baseColor = color;
-        this._isDirty = true;
+        this._propertyChanged('color', color);
     };
     /**
      * Check if the mesh is selected.
      * @returns {boolean}
      */
-    Mesh.prototype.isSelected = function () {
+    MeshNode.prototype.isSelected = function () {
         return this._selected;
     };
-    /**
-     * Apply correct styles with each render cycle.
-     */
-    Mesh.prototype.render = function (renderOptions) {
+    MeshNode.prototype.render = function (renderOptions) {
+        // render self
+        this._render(renderOptions);
+        // render children if existing
+        for (var _i = 0, _a = this.getChildren(); _i < _a.length; _i++) {
+            var child = _a[_i];
+            if (child.render) {
+                child.render(renderOptions);
+            }
+        }
+    };
+    MeshNode.prototype._render = function (renderOptions) {
         // don't re-render anything when we're sure nothing changed
-        if (!this._isDirty && renderOptions.source === "meshNode_" + this.uuid) {
+        if (!this._isDirty && renderOptions.source === "meshNode_" + this.getId()) {
             return;
         }
         if (this._selected) {
@@ -659,19 +635,23 @@ var Mesh = /** @class */ (function (_super) {
         }
         this._isDirty = false;
     };
-    Mesh.prototype._calculateBounds = function () {
+    MeshNode.prototype._calculateBounds = function () {
         var bounds = new THREE.Box3();
         bounds.setFromObject(this);
         return bounds;
     };
-    Mesh.prototype._calculateModelHeight = function () {
+    MeshNode.prototype._calculateModelHeight = function () {
         return this._currentBounds.max.z - this._currentBounds.min.z;
     };
-    return Mesh;
+    MeshNode.prototype._propertyChanged = function (propertyName, value) {
+        this._isDirty = true;
+        this.onPropertyChanged.emit({ nodeId: this.getId(), propertyName: propertyName, value: value });
+    };
+    return MeshNode;
 }(THREE.Mesh));
-exports.Mesh = Mesh;
+exports.MeshNode = MeshNode;
 
-},{"./BaseNode":8,"./NodeInterface":10,"three":14}],10:[function(require,module,exports){
+},{"../utils/Signal":12,"./NodeInterface":9,"three":13}],9:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 /**
@@ -685,7 +665,7 @@ var NODE_TYPES;
     NODE_TYPES["GROUP"] = "group";
 })(NODE_TYPES = exports.NODE_TYPES || (exports.NODE_TYPES = {}));
 
-},{}],11:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 'use strict';
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
@@ -699,36 +679,52 @@ var __extends = (this && this.__extends) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
-var BaseNode_1 = require("./BaseNode");
 var NodeInterface_1 = require("./NodeInterface");
 var SceneNode = /** @class */ (function (_super) {
     __extends(SceneNode, _super);
     function SceneNode() {
-        var _this = _super.call(this) || this;
+        var _this = _super !== null && _super.apply(this, arguments) || this;
         _this._nodeType = NodeInterface_1.NODE_TYPES.SCENE;
-        _this._scene = new THREE.Scene();
         return _this;
     }
+    SceneNode.prototype.getId = function () {
+        return this.uuid;
+    };
     /**
      * Get THREE.Scene object.
      * @returns {Scene}
      */
     SceneNode.prototype.getScene = function () {
-        return this._scene;
+        return this;
     };
-    /**
-     * Add a child mesh.
-     * @param {MeshNode} node
-     */
+    SceneNode.prototype.getType = function () {
+        return this._nodeType;
+    };
     SceneNode.prototype.addChild = function (node) {
-        _super.prototype.addChild.call(this, node);
-        this._scene.add(node.getMesh());
+        this.add(node);
+    };
+    SceneNode.prototype.removeChild = function (node) {
+        this.remove(node);
+    };
+    SceneNode.prototype.getChildren = function () {
+        return this.children;
+    };
+    SceneNode.prototype.getParent = function () {
+        return this.parent;
+    };
+    SceneNode.prototype.render = function (renderOptions) {
+        for (var _i = 0, _a = this.getChildren(); _i < _a.length; _i++) {
+            var child = _a[_i];
+            if (child.render) {
+                child.render(renderOptions);
+            }
+        }
     };
     return SceneNode;
-}(BaseNode_1.BaseNode));
+}(THREE.Scene));
 exports.SceneNode = SceneNode;
 
-},{"./BaseNode":8,"./NodeInterface":10,"three":14}],12:[function(require,module,exports){
+},{"./NodeInterface":9,"three":13}],11:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -751,7 +747,7 @@ var SimpleMeshFactory = /** @class */ (function () {
 }());
 exports.SimpleMeshFactory = SimpleMeshFactory;
 
-},{"./MeshNode":9,"three":14}],13:[function(require,module,exports){
+},{"./MeshNode":8,"three":13}],12:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var Signal = /** @class */ (function () {
@@ -771,7 +767,7 @@ var Signal = /** @class */ (function () {
 }());
 exports.Signal = Signal;
 
-},{}],14:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
