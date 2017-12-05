@@ -42,11 +42,21 @@ export class SceneManager {
      * By default will be added as child of the scene root.
      * @param {MeshNode} meshNode
      * @param {MeshNode} [parentNode]
+     * @returns {MeshNode}
      */
-    public addMesh (meshNode: MeshNode, parentNode?: MeshNode) {
+    public addMesh (meshNode: MeshNode, parentNode?: MeshNode): MeshNode {
+        
         // TODO: create helper function or even automatically
         const offset = meshNode.getMesh().geometry.center()
         meshNode.getMesh().position.sub(offset)
+        
+        // when the mesh node changes, the renderer should be signalled to re-render
+        meshNode.onPropertyChanged.connect(() => {
+            this._viewer.onRender.emit({
+                type: RENDER_TYPES.MESH,
+                source: `meshNode_${meshNode.getId()}`
+            })
+        })
         
         // TODO: offset depending on build volume type
         // TODO: place model where available space is in build volume
@@ -58,15 +68,20 @@ export class SceneManager {
         
         // make sure the new object gets rendered
         this._viewer.onRender.emit({
-            force: true,
             type: RENDER_TYPES.MESH,
             source: SceneManager.name
         })
+        
+        return meshNode
     }
-    
+
+    /**
+     * Add a simple cube mesh.
+     * @returns {MeshNode}
+     */
     public addCube () {
         const cube = SimpleMeshFactory.createCube()
-        this.addMesh(cube)
+        return this.addMesh(cube)
     }
 
     /**

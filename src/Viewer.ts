@@ -15,6 +15,7 @@ import { BuildVolumeManager } from './managers/BuildVolumeManager'
 
 // nodes
 import { SceneNode } from './nodes/SceneNode'
+import { MeshNode } from './nodes/MeshNode'
 
 /**
  * The Viewer class holds one complete instance of the 3D viewer.
@@ -144,9 +145,10 @@ export class Viewer {
     }
 
     /**
-     * Adds a simple cube/box to the scene.
+     * Adds a simple cube/box mesh to the scene.
+     * @returns {MeshNode}
      */
-    public addCube (): void {
-        this._sceneManager.addCube()
+    public addCube (): MeshNode {
+        return this._sceneManager.addCube()
     }
 }

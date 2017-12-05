@@ -21,6 +21,10 @@ export class MeshNode extends BaseNode {
         this._mesh = new Mesh(geometry)
     }
     
+    public getId (): string {
+        return this._mesh.uuid
+    }
+    
     public getGeometry (): THREE.Geometry {
         return this._mesh.geometry
     }
@@ -29,8 +33,13 @@ export class MeshNode extends BaseNode {
         return this._mesh
     }
     
-    protected _render () {
-        this._mesh.render()
+    public setColor (color: THREE.Color): void {
+        this._mesh.setColor(color)
+        this.onPropertyChanged.emit(color)
+    }
+    
+    protected _render (renderOptions?: RenderOptions) {
+        this._mesh.render(renderOptions)
     }
 }
 
@@ -52,6 +61,9 @@ export class Mesh extends THREE.Mesh {
     private _baseColor: THREE.Color
     private _selectionColor: THREE.Color
     
+    // rendering
+    private _isDirty: boolean
+    
     constructor (geometry?: THREE.Geometry) {
         super()
         
@@ -62,7 +74,7 @@ export class Mesh extends THREE.Mesh {
         this.geometry = geometry || new THREE.Geometry()
         
         // set default material
-        this._baseColor = new THREE.Color().setRGB(0, 0, 0)
+        this._baseColor = new THREE.Color().setRGB(.5, .5, .5)
         this.material = new THREE.MeshPhongMaterial({
             color: this._baseColor,
             shininess: 50
@@ -78,6 +90,7 @@ export class Mesh extends THREE.Mesh {
         this._allowTransform = true
         this._originalBounds = this._currentBounds = this._calculateBounds()
         this._modelHeight = this._calculateModelHeight()
+        this._isDirty = true
     }
 
     /**
@@ -86,6 +99,15 @@ export class Mesh extends THREE.Mesh {
      */
     public getColor (): THREE.Color {
         return this._baseColor
+    }
+
+    /**
+     * Set the base color of the mesh.
+     * @param {Color} color
+     */
+    public setColor (color: THREE.Color): void {
+        this._baseColor = color
+        this._isDirty = true
     }
 
     /**
@@ -100,11 +122,19 @@ export class Mesh extends THREE.Mesh {
      * Apply correct styles with each render cycle.
      */
     public render (renderOptions?: RenderOptions) {
+        
+        // don't re-render anything when we're sure nothing changed
+        if (!this._isDirty && renderOptions.source === `meshNode_${this.uuid}`) {
+            return
+        }
+        
         if (this._selected) {
             this.material.color = this._selectionColor
         } else {
             this.material.color = this._baseColor
         }
+        
+        this._isDirty = false
     }
     
     private _calculateBounds () {

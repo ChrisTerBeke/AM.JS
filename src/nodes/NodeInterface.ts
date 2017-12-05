@@ -18,6 +18,12 @@ export enum NODE_TYPES {
 export interface Node {
 
     /**
+     * Get the unique ID of a node.
+     * @returns {string}
+     */
+    getId(): string
+
+    /**
      * Get the node type.
      * @returns {NODE_TYPES}
      */

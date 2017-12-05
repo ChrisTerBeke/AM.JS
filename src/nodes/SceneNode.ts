@@ -28,6 +28,7 @@ export class SceneNode extends BaseNode {
      * @param {MeshNode} node
      */
     public addChild (node: MeshNode): void {
+        super.addChild(node)
         this._scene.add(node.getMesh())
     }
 }

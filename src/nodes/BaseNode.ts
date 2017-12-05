@@ -2,11 +2,19 @@
 
 import { Node, NODE_TYPES } from './NodeInterface'
 import { RenderOptions } from '../managers/RenderManager'
+import { Signal } from '../utils/Signal'
 
 export class BaseNode implements Node {
     
     protected _nodeType: NODE_TYPES = NODE_TYPES.NONE
     protected _children: Node[] = []
+    
+    // event fired when property changes
+    public onPropertyChanged: Signal<any> = new Signal()
+    
+    public getId (): string {
+        return 'none'
+    }
     
     public getType (): NODE_TYPES {
         return this._nodeType
@@ -23,15 +31,15 @@ export class BaseNode implements Node {
     public render (renderOptions?: RenderOptions) {
 
         // render self
-        this._render()
+        this._render(renderOptions)
         
         // render children if existing
         for (let child of this._children) {
-            child.render()
+            child.render(renderOptions)
         }
     }
     
-    protected _render () {
-        console.warn('The _render method needs to be implemented per node type.')
+    protected _render (renderOptions?: RenderOptions) {
+        // nothing here, should be implemented per node type
     }
 }

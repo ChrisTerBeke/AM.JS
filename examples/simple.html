@@ -15,13 +15,12 @@
         
         // log when viewer is ready
         viewer.onReady.connect(function () {
-            console.log('Viewer is ready')
-            viewer.addCube()
-            console.log('scene', viewer.getSceneNode())
-        })
+            var cubeMeshNode = viewer.addCube();
+	        cubeMeshNode.setColor(new THREE.Color().setRGB(0.4, 0.5, 1));
+        });
         
         // start the viewer instance
-        viewer.init(canvas)
+        viewer.init(canvas);
         
     </script>
 </body>
