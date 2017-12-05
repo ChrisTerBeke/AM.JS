@@ -33,10 +33,14 @@ export class SceneNode extends THREE.Scene implements Node {
     }
 
     public getChildren (): Node[] {
+        // @ts-ignore
+        // noinspection TypeScriptValidateTypes
         return this.children
     }
 
     public getParent (): Node {
+        // @ts-ignore
+        // noinspection TypeScriptValidateTypes
         return this.parent
     }
 

@@ -82,10 +82,14 @@ export class MeshNode extends THREE.Mesh implements Node {
     }
 
     public getChildren (): Node[] {
+        // @ts-ignore
+        // noinspection TypeScriptValidateTypes
         return this.children
     }
 
     public getParent (): Node {
+        // @ts-ignore
+        // noinspection TypeScriptValidateTypes
         return this.parent
     }
 
