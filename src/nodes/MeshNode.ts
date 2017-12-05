@@ -35,11 +35,15 @@ export class MeshNode extends BaseNode {
     
     public setColor (color: THREE.Color): void {
         this._mesh.setColor(color)
-        this.onPropertyChanged.emit(color)
+        this._onPropertyChanged('color', color)
     }
     
     protected _render (renderOptions?: RenderOptions) {
         this._mesh.render(renderOptions)
+    }
+    
+    private _onPropertyChanged (propertyName: string, value: any) {
+        this.onPropertyChanged.emit({ nodeId: this.getId(), propertyName, value })
     }
 }
 

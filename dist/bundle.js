@@ -381,20 +381,14 @@ var SceneManager = /** @class */ (function () {
      * @returns {MeshNode}
      */
     SceneManager.prototype.addMesh = function (meshNode, parentNode) {
-        var _this = this;
         // TODO: create helper function or even automatically
         var offset = meshNode.getMesh().geometry.center();
         meshNode.getMesh().position.sub(offset);
         // when the mesh node changes, the renderer should be signalled to re-render
-        meshNode.onPropertyChanged.connect(function () {
-            _this._viewer.onRender.emit({
-                type: RenderManager_1.RENDER_TYPES.MESH,
-                source: "meshNode_" + meshNode.getId()
-            });
-        });
+        meshNode.onPropertyChanged.connect(this._onMeshNodePropertyChanged.bind(this));
         // TODO: offset depending on build volume type
         // TODO: place model where available space is in build volume
-        // TODO: fire meshes + geometry changed events
+        // TODO: fire meshes + geometry changed events?
         // add new mesh as child of scene root
         // TODO: add to different parent node if requested, must be existing node in tree by ID
         this._sceneRootNode.addChild(meshNode);
@@ -428,6 +422,17 @@ var SceneManager = /** @class */ (function () {
     SceneManager.prototype.addLight = function (light) {
         // TODO: move to scene node
         this._sceneRootNode.getScene().add(light);
+    };
+    /**
+     * Handle property changes from any of the meshNodes in the scene tree.
+     * @param propertyChangedData
+     * @private
+     */
+    SceneManager.prototype._onMeshNodePropertyChanged = function (propertyChangedData) {
+        this._viewer.onRender.emit({
+            type: RenderManager_1.RENDER_TYPES.MESH,
+            source: "meshNode_" + propertyChangedData.nodeId
+        });
     };
     return SceneManager;
 }());
@@ -514,10 +519,13 @@ var MeshNode = /** @class */ (function (_super) {
     };
     MeshNode.prototype.setColor = function (color) {
         this._mesh.setColor(color);
-        this.onPropertyChanged.emit(color);
+        this._onPropertyChanged('color', color);
     };
     MeshNode.prototype._render = function (renderOptions) {
         this._mesh.render(renderOptions);
+    };
+    MeshNode.prototype._onPropertyChanged = function (propertyName, value) {
+        this.onPropertyChanged.emit({ nodeId: this.getId(), propertyName: propertyName, value: value });
     };
     return MeshNode;
 }(BaseNode_1.BaseNode));

@@ -51,16 +51,11 @@ export class SceneManager {
         meshNode.getMesh().position.sub(offset)
         
         // when the mesh node changes, the renderer should be signalled to re-render
-        meshNode.onPropertyChanged.connect(() => {
-            this._viewer.onRender.emit({
-                type: RENDER_TYPES.MESH,
-                source: `meshNode_${meshNode.getId()}`
-            })
-        })
+        meshNode.onPropertyChanged.connect(this._onMeshNodePropertyChanged.bind(this))
         
         // TODO: offset depending on build volume type
         // TODO: place model where available space is in build volume
-        // TODO: fire meshes + geometry changed events
+        // TODO: fire meshes + geometry changed events?
         
         // add new mesh as child of scene root
         // TODO: add to different parent node if requested, must be existing node in tree by ID
@@ -100,5 +95,17 @@ export class SceneManager {
     public addLight (light: THREE.Light) {
         // TODO: move to scene node
         this._sceneRootNode.getScene().add(light)
+    }
+
+    /**
+     * Handle property changes from any of the meshNodes in the scene tree.
+     * @param propertyChangedData
+     * @private
+     */
+    private _onMeshNodePropertyChanged (propertyChangedData: any) {
+        this._viewer.onRender.emit({
+            type: RENDER_TYPES.MESH,
+            source: `meshNode_${propertyChangedData.nodeId}`
+        })
     }
 }
