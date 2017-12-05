@@ -17,6 +17,8 @@
         viewer.onReady.connect(function () {
             var cubeMeshNode = viewer.addCube();
 	        cubeMeshNode.setColor(new THREE.Color().setRGB(0.4, 0.5, 1));
+	        var cubeMeshNode2 = viewer.addCube(cubeMeshNode.getId())
+            console.log(viewer.getSceneNode())
         });
         
         // start the viewer instance

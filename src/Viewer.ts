@@ -148,7 +148,7 @@ export class Viewer {
      * Adds a simple cube/box mesh to the scene.
      * @returns {MeshNode}
      */
-    public addCube (): MeshNode {
-        return this._sceneManager.addCube()
+    public addCube (parentNodeId?: string): MeshNode {
+        return this._sceneManager.addCube(parentNodeId)
     }
 }

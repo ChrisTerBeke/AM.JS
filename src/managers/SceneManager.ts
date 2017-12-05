@@ -2,6 +2,7 @@
 
 import * as THREE from 'three'
 import { Viewer } from '../Viewer'
+import { Node } from '../nodes/NodeInterface'
 import { SceneNode } from '../nodes/SceneNode'
 import { MeshNode } from '../nodes/MeshNode'
 import { SimpleMeshFactory } from '../nodes/SimpleMeshFactory'
@@ -41,10 +42,10 @@ export class SceneManager {
      * Add a mesh node to the scene.
      * By default will be added as child of the scene root.
      * @param {MeshNode} meshNode
-     * @param {MeshNode} [parentNode]
+     * @param {string} [parentNodeId]
      * @returns {MeshNode}
      */
-    public addMesh (meshNode: MeshNode, parentNode?: MeshNode): MeshNode {
+    public addMesh (meshNode: MeshNode, parentNodeId?: string): MeshNode {
         
         // TODO: create helper function or even automatically
         const offset = meshNode.getMesh().geometry.center()
@@ -57,9 +58,15 @@ export class SceneManager {
         // TODO: place model where available space is in build volume
         // TODO: fire meshes + geometry changed events?
         
-        // add new mesh as child of scene root
-        // TODO: add to different parent node if requested, must be existing node in tree by ID
-        this._sceneRootNode.addChild(meshNode)
+        // add new mesh as child to specified parent node
+        if (parentNodeId) {
+            const parentNode = this._findNodeById(this._sceneRootNode, parentNodeId)
+            if (parentNode) {
+                parentNode.addChild(meshNode)
+            }
+        } else {
+            this._sceneRootNode.addChild(meshNode)
+        }
         
         // make sure the new object gets rendered
         this._viewer.onRender.emit({
@@ -74,9 +81,9 @@ export class SceneManager {
      * Add a simple cube mesh.
      * @returns {MeshNode}
      */
-    public addCube () {
+    public addCube (parentNodeId?: string) {
         const cube = SimpleMeshFactory.createCube()
-        return this.addMesh(cube)
+        return this.addMesh(cube, parentNodeId)
     }
 
     /**
@@ -107,5 +114,27 @@ export class SceneManager {
             type: RENDER_TYPES.MESH,
             source: `meshNode_${propertyChangedData.nodeId}`
         })
+    }
+
+    /**
+     * Find a node by ID recursively
+     * @param {Node} parentNode
+     * @param {string} nodeId
+     * @returns {Node}
+     * @private
+     */
+    private _findNodeById (parentNode: Node, nodeId: string): Node | null {
+        let nodeToFind = null
+        
+        // loop over all children and children's children to find the node
+        for (let child of parentNode.getChildren()) {
+            if (child.getId() === nodeId) {
+                nodeToFind = child
+            } else {
+                nodeToFind = this._findNodeById(child, nodeId)
+            }
+        }
+        
+        return nodeToFind
     }
 }

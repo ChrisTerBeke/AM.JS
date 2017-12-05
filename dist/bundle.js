@@ -113,8 +113,8 @@ var Viewer = /** @class */ (function () {
      * Adds a simple cube/box mesh to the scene.
      * @returns {MeshNode}
      */
-    Viewer.prototype.addCube = function () {
-        return this._sceneManager.addCube();
+    Viewer.prototype.addCube = function (parentNodeId) {
+        return this._sceneManager.addCube(parentNodeId);
     };
     return Viewer;
 }());
@@ -377,10 +377,10 @@ var SceneManager = /** @class */ (function () {
      * Add a mesh node to the scene.
      * By default will be added as child of the scene root.
      * @param {MeshNode} meshNode
-     * @param {MeshNode} [parentNode]
+     * @param {string} [parentNodeId]
      * @returns {MeshNode}
      */
-    SceneManager.prototype.addMesh = function (meshNode, parentNode) {
+    SceneManager.prototype.addMesh = function (meshNode, parentNodeId) {
         // TODO: create helper function or even automatically
         var offset = meshNode.getMesh().geometry.center();
         meshNode.getMesh().position.sub(offset);
@@ -389,9 +389,16 @@ var SceneManager = /** @class */ (function () {
         // TODO: offset depending on build volume type
         // TODO: place model where available space is in build volume
         // TODO: fire meshes + geometry changed events?
-        // add new mesh as child of scene root
-        // TODO: add to different parent node if requested, must be existing node in tree by ID
-        this._sceneRootNode.addChild(meshNode);
+        // add new mesh as child to specified parent node
+        if (parentNodeId) {
+            var parentNode = this._findNodeById(this._sceneRootNode, parentNodeId);
+            if (parentNode) {
+                parentNode.addChild(meshNode);
+            }
+        }
+        else {
+            this._sceneRootNode.addChild(meshNode);
+        }
         // make sure the new object gets rendered
         this._viewer.onRender.emit({
             type: RenderManager_1.RENDER_TYPES.MESH,
@@ -403,9 +410,9 @@ var SceneManager = /** @class */ (function () {
      * Add a simple cube mesh.
      * @returns {MeshNode}
      */
-    SceneManager.prototype.addCube = function () {
+    SceneManager.prototype.addCube = function (parentNodeId) {
         var cube = SimpleMeshFactory_1.SimpleMeshFactory.createCube();
-        return this.addMesh(cube);
+        return this.addMesh(cube, parentNodeId);
     };
     /**
      * Add a camera to the scene.
@@ -433,6 +440,27 @@ var SceneManager = /** @class */ (function () {
             type: RenderManager_1.RENDER_TYPES.MESH,
             source: "meshNode_" + propertyChangedData.nodeId
         });
+    };
+    /**
+     * Find a node by ID recursively
+     * @param {Node} parentNode
+     * @param {string} nodeId
+     * @returns {Node}
+     * @private
+     */
+    SceneManager.prototype._findNodeById = function (parentNode, nodeId) {
+        var nodeToFind = null;
+        // loop over all children and children's children to find the node
+        for (var _i = 0, _a = parentNode.getChildren(); _i < _a.length; _i++) {
+            var child = _a[_i];
+            if (child.getId() === nodeId) {
+                nodeToFind = child;
+            }
+            else {
+                nodeToFind = this._findNodeById(child, nodeId);
+            }
+        }
+        return nodeToFind;
     };
     return SceneManager;
 }());
