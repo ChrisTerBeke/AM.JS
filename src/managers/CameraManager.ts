@@ -1,6 +1,8 @@
 'use strict'
 
 import * as THREE from 'three'
+window['THREE'] = THREE
+import 'three/examples/js/controls/OrbitControls.js'
 import { Viewer } from '../Viewer'
 import { RENDER_TYPES } from './RenderManager'
 
@@ -17,6 +19,7 @@ export class CameraManager {
     private _viewer: Viewer
     private _canvas: HTMLCanvasElement
     private _camera: THREE.PerspectiveCamera | THREE.OrthographicCamera
+    private _controls: THREE.OrbitControls
 
     private static __instance: CameraManager
 
@@ -68,6 +71,20 @@ export class CameraManager {
             force: true,
             source: CameraManager.name,
             type: RENDER_TYPES.CAMERA
+        })
+        
+        this.updateCameraControls()
+    }
+    
+    public updateCameraControls () {
+        this._controls = new THREE.OrbitControls(this._camera, this._canvas)
+        this._controls.target.set(0, 0, 0)
+        this._controls.dampingFactor = 0
+        this._controls.addEventListener('change', event => {
+            this._viewer.onRender.emit({
+                source: CameraManager.name,
+                type: RENDER_TYPES.CAMERA
+            })
         })
     }
 
