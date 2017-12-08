@@ -53,11 +53,12 @@ export class Viewer {
         this.setCanvas(canvas)
 
         // initialize manager singletons
+        // note: they have to be loaded in this specific order
         this._sceneManager = SceneManager.getInstance(this)
+        this._buildVolumeManager = BuildVolumeManager.getInstance(this)
         this._cameraManager = CameraManager.getInstance(this)
         this._renderManager = RenderManager.getInstance(this)
         this._animationManager = AnimationManager.getInstance(this)
-        this._buildVolumeManager = BuildVolumeManager.getInstance(this)
         
         // add the camera
         this._sceneManager.addCamera(this._cameraManager.getCamera())
@@ -151,5 +152,13 @@ export class Viewer {
      */
     public removeMeshNode (nodeId: string): void {
         this._sceneManager.removeMeshNode(nodeId)
+    }
+
+    /**
+     * Get the bounding box of the build volume.
+     * @returns {Box3}
+     */
+    public getBuildVolumeBoundingBox () {
+        return this._buildVolumeManager.getBuildVolumeBoundingBox()
     }
 }

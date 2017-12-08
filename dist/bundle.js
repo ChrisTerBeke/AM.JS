@@ -31,11 +31,12 @@ var Viewer = /** @class */ (function () {
         // set the canvas element to start rendering
         this.setCanvas(canvas);
         // initialize manager singletons
+        // note: they have to be loaded in this specific order
         this._sceneManager = SceneManager_1.SceneManager.getInstance(this);
+        this._buildVolumeManager = BuildVolumeManager_1.BuildVolumeManager.getInstance(this);
         this._cameraManager = CameraManager_1.CameraManager.getInstance(this);
         this._renderManager = RenderManager_1.RenderManager.getInstance(this);
         this._animationManager = AnimationManager_1.AnimationManager.getInstance(this);
-        this._buildVolumeManager = BuildVolumeManager_1.BuildVolumeManager.getInstance(this);
         // add the camera
         this._sceneManager.addCamera(this._cameraManager.getCamera());
         // finished with initializing
@@ -118,6 +119,13 @@ var Viewer = /** @class */ (function () {
     Viewer.prototype.removeMeshNode = function (nodeId) {
         this._sceneManager.removeMeshNode(nodeId);
     };
+    /**
+     * Get the bounding box of the build volume.
+     * @returns {Box3}
+     */
+    Viewer.prototype.getBuildVolumeBoundingBox = function () {
+        return this._buildVolumeManager.getBuildVolumeBoundingBox();
+    };
     return Viewer;
 }());
 exports.Viewer = Viewer;
@@ -157,6 +165,7 @@ exports.AnimationManager = AnimationManager;
 },{}],4:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
+var THREE = require("three");
 /**
  * The build volume manager handles everything related to the 3D printer build volume.
  * It shows the print bed, volume outline and simulated print head.
@@ -164,6 +173,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var BuildVolumeManager = /** @class */ (function () {
     function BuildVolumeManager(viewer) {
         this._viewer = viewer;
+        this._createCartesianBuildVolume(200, 200, 200);
     }
     BuildVolumeManager.getInstance = function (viewer) {
         // create instance if not yet existing
@@ -172,11 +182,29 @@ var BuildVolumeManager = /** @class */ (function () {
         }
         return this.__instance;
     };
+    BuildVolumeManager.prototype.getBuildVolumeBoundingBox = function () {
+        this._buildVolume.geometry.computeBoundingBox();
+        return this._buildVolume.geometry.boundingBox;
+    };
+    BuildVolumeManager.prototype._createCartesianBuildVolume = function (width, depth, height) {
+        var buildVolumeGeometry = new THREE.BoxGeometry(width, depth, height);
+        var buildVolumeFaceMaterials = new THREE.MeshBasicMaterial({
+            color: 0x46b1e6,
+            transparent: true,
+            opacity: 0.2,
+            side: THREE.BackSide
+        });
+        var buildVolume = new THREE.Mesh(buildVolumeGeometry, buildVolumeFaceMaterials);
+        buildVolume.geometry.computeBoundingBox();
+        buildVolumeGeometry.translate(width / 2, depth / 2, height / 2);
+        this._buildVolume = buildVolume;
+        this._viewer.getSceneNode().addChild(this._buildVolume);
+    };
     return BuildVolumeManager;
 }());
 exports.BuildVolumeManager = BuildVolumeManager;
 
-},{}],5:[function(require,module,exports){
+},{"three":13}],5:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -226,27 +254,19 @@ var CameraManager = /** @class */ (function () {
         else {
             console.error("Camera type " + type + " is not a valid camera type.");
         }
-        // reset position and target
-        this.setCameraPosition(new THREE.Vector3(50, 50, 50));
-        this.setCameraTarget(new THREE.Vector3(0, 0, 0));
+        // set the correct 'up' direction to the z axis
+        this._camera.up.set(0, 0, 1);
+        // reset position and target to center of build volume
+        var buildVolume = this._viewer.getBuildVolumeBoundingBox();
+        // zoom the camera our far enough to see the build volume
+        this.setCameraPosition(new THREE.Vector3(buildVolume.max.x * 2, buildVolume.max.y * 2, buildVolume.max.z * 2));
+        // focus the camera and controls on the center of the build volume surface
+        this.setCameraTarget(new THREE.Vector3((buildVolume.max.x - buildVolume.min.x) / 2, (buildVolume.max.y - buildVolume.min.y) / 2, buildVolume.min.z));
+        console.log('camera', this._camera);
         // trigger a render update
         this._viewer.onRender.emit({
-            force: true,
             source: CameraManager.name,
             type: RenderManager_1.RENDER_TYPES.CAMERA
-        });
-        this.updateCameraControls();
-    };
-    CameraManager.prototype.updateCameraControls = function () {
-        var _this = this;
-        this._controls = new THREE.OrbitControls(this._camera, this._canvas);
-        this._controls.target.set(0, 0, 0);
-        this._controls.dampingFactor = 0;
-        this._controls.addEventListener('change', function (event) {
-            _this._viewer.onRender.emit({
-                source: CameraManager.name,
-                type: RenderManager_1.RENDER_TYPES.CAMERA
-            });
         });
     };
     /**
@@ -262,6 +282,35 @@ var CameraManager = /** @class */ (function () {
      */
     CameraManager.prototype.setCameraTarget = function (target) {
         this._camera.lookAt(target);
+        this._updateCameraControls(target);
+    };
+    /**
+     * Enable or disable the camera controls.
+     * Only one set of controls can be active at the same time so the camera controls are disabled when transforming nodes.
+     * @param {boolean} enabled
+     */
+    CameraManager.prototype.enableCameraControls = function (enabled) {
+        if (enabled === void 0) { enabled = true; }
+        this._controls.enabled = enabled;
+    };
+    /**
+     * Update the camera controls after a new camera was created.
+     * @private
+     */
+    CameraManager.prototype._updateCameraControls = function (cameraTarget) {
+        var _this = this;
+        // create camera controls if needed
+        if (!this._controls) {
+            this._controls = new THREE.OrbitControls(this._camera, this._canvas);
+            this._controls.addEventListener('change', function (event) {
+                _this._viewer.onRender.emit({
+                    source: CameraManager.name,
+                    type: RenderManager_1.RENDER_TYPES.CAMERA
+                });
+            });
+        }
+        // set the target position to be in sync with the camera
+        this._controls.target.set(cameraTarget.x, cameraTarget.y, cameraTarget.z);
     };
     /**
      * Create a new orthographic camera based on a given canvas size.
@@ -308,6 +357,8 @@ var RenderManager = /** @class */ (function () {
         // create WebGL renderer
         this._renderer = new THREE.WebGLRenderer({
             canvas: this._canvas,
+            // antialias: true,
+            alpha: true,
         });
         // set other rendering options that are not available in constructor
         this._renderer.shadowMap.enabled = true;
@@ -336,8 +387,6 @@ var RenderManager = /** @class */ (function () {
         });
     };
     RenderManager.prototype._render = function (renderOptions) {
-        // clear the scene
-        // this._renderer.clear()
         // these render types should trigger a re-render of scene nodes
         var NODE_RENDER_TYPES = [
             RENDER_TYPES.CANVAS,
@@ -400,14 +449,15 @@ var SceneManager = /** @class */ (function () {
      * @returns {MeshNode}
      */
     SceneManager.prototype.addMesh = function (meshNode, parentNodeId) {
-        // TODO: create helper function or even automatically
+        // center mesh around it's geometry
         var offset = meshNode.geometry.center();
         meshNode.position.sub(offset);
         // when the mesh node changes, the renderer should be signalled to re-render
         meshNode.onPropertyChanged.connect(this._onMeshNodePropertyChanged.bind(this));
-        // TODO: offset depending on build volume type
+        var buildVolume = this._viewer.getBuildVolumeBoundingBox();
+        var meshNodePosition = new THREE.Vector3((buildVolume.max.x - buildVolume.min.x) / 2, (buildVolume.max.y - buildVolume.min.y) / 2, buildVolume.min.z + (meshNode.geometry.boundingBox.max.z - meshNode.geometry.boundingBox.min.z) / 2);
+        meshNode.position.set(meshNodePosition.x, meshNodePosition.y, meshNodePosition.z);
         // TODO: place model where available space is in build volume
-        // TODO: fire meshes + geometry changed events?
         // add new mesh as child to specified parent node
         if (parentNodeId) {
             var parentNode = this._findNodeById(this._sceneRootNode, parentNodeId);
@@ -416,7 +466,6 @@ var SceneManager = /** @class */ (function () {
             }
         }
         else {
-            console.log('this._sceneRootNode', this._sceneRootNode);
             this._sceneRootNode.addChild(meshNode);
         }
         this._viewer.onRender.emit({

@@ -52,16 +52,23 @@ export class SceneManager {
      */
     public addMesh (meshNode: MeshNode, parentNodeId?: string): MeshNode {
         
-        // TODO: create helper function or even automatically
+        // center mesh around it's geometry
         const offset = meshNode.geometry.center()
         meshNode.position.sub(offset)
         
         // when the mesh node changes, the renderer should be signalled to re-render
         meshNode.onPropertyChanged.connect(this._onMeshNodePropertyChanged.bind(this))
         
-        // TODO: offset depending on build volume type
+        const buildVolume = this._viewer.getBuildVolumeBoundingBox()
+        const meshNodePosition = new THREE.Vector3(
+            (buildVolume.max.x - buildVolume.min.x) / 2,
+            (buildVolume.max.y - buildVolume.min.y) / 2,
+            buildVolume.min.z + (meshNode.geometry.boundingBox.max.z - meshNode.geometry.boundingBox.min.z) / 2
+        )
+        
+        meshNode.position.set(meshNodePosition.x, meshNodePosition.y, meshNodePosition.z)
+        
         // TODO: place model where available space is in build volume
-        // TODO: fire meshes + geometry changed events?
         
         // add new mesh as child to specified parent node
         if (parentNodeId) {
@@ -70,7 +77,6 @@ export class SceneManager {
                 parentNode.addChild(meshNode)
             }
         } else {
-            console.log('this._sceneRootNode', this._sceneRootNode)
             this._sceneRootNode.addChild(meshNode)
         }
         

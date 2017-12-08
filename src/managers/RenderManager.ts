@@ -52,7 +52,7 @@ export class RenderManager {
         this._renderer = new THREE.WebGLRenderer({
             canvas: this._canvas,
             // antialias: true,
-            // alpha: true,
+            alpha: true,
             // preserveDrawingBuffer: true
         })
         
@@ -79,9 +79,6 @@ export class RenderManager {
     }
     
     private _render (renderOptions?: RenderOptions): void {
-        
-        // clear the scene
-        // this._renderer.clear()
         
         // these render types should trigger a re-render of scene nodes
         const NODE_RENDER_TYPES = [
