@@ -5,8 +5,13 @@ import { Node, NODE_TYPES } from './NodeInterface'
 import { RenderOptions } from '../managers/RenderManager'
 
 export class SceneNode extends THREE.Scene implements Node {
+    
+    constructor () {
+        super()
 
-    protected _nodeType: NODE_TYPES = NODE_TYPES.SCENE
+        // override type
+        this.type = NODE_TYPES.SCENE
+    }
 
     public getId (): string {
         return this.uuid
@@ -20,8 +25,8 @@ export class SceneNode extends THREE.Scene implements Node {
         return this
     }
 
-    public getType (): NODE_TYPES {
-        return this._nodeType
+    public getType (): string {
+        return this.type
     }
 
     public addChild (node: THREE.Object3D): void {

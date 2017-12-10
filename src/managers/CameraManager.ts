@@ -3,6 +3,7 @@
 import * as THREE from 'three'
 window['THREE'] = THREE
 import 'three/examples/js/controls/OrbitControls.js'
+
 import { Viewer } from '../Viewer'
 import { RENDER_TYPES } from './RenderManager'
 
@@ -36,7 +37,19 @@ export class CameraManager {
     constructor (viewerInstance: Viewer) {
         this._viewer = viewerInstance
         this._canvas = this._viewer.getCanvas()
+        
+        // initialize the default camera
         this.setCameraType(CAMERA_TYPES.PERSPECTIVE)
+
+        // disable the camera controls while transforming
+        this._viewer.transformStarted.connect(() => {
+            this.enableCameraControls(false)
+        })
+
+        // enable the camera controls when done transforming
+        this._viewer.transformEnded.connect(() => {
+            this.enableCameraControls()
+        })
     }
 
     /**
@@ -82,7 +95,8 @@ export class CameraManager {
             buildVolume.min.z
         ))
         
-        console.log('camera', this._camera)
+        // trigger camera bindings
+        this._viewer.cameraCreated.emit(this._camera)
         
         // trigger a render update
         this._viewer.onRender.emit({
@@ -115,6 +129,11 @@ export class CameraManager {
      */
     public enableCameraControls (enabled: boolean = true): void {
         this._controls.enabled = enabled
+        
+        this._viewer.onRender.emit({
+            source: CameraManager.name,
+            type: RENDER_TYPES.CAMERA
+        })
     }
 
     /**

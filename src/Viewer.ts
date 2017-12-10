@@ -1,6 +1,7 @@
 'use strict'
 
 // utils
+import * as THREE from 'three'
 import { Signal } from './utils/Signal'
 
 // managers
@@ -30,17 +31,13 @@ export class Viewer {
     private _buildVolumeManager: BuildVolumeManager
 
     // signals used for event based triggering
-    public onRender: Signal<RenderOptions>
-    public onReady: Signal<any>
-
-    /**
-     * Only use the constructor for creating signals.
-     * All other actions should be done in the init method.
-     */
-    constructor () {
-        this.onRender = new Signal()
-        this.onReady = new Signal()
-    }
+    public onRender: Signal<RenderOptions> = new Signal()
+    public onReady: Signal<any> = new Signal()
+    public transformStarted: Signal<any> = new Signal()
+    public transformEnded: Signal<any> = new Signal()
+    public cameraCreated: Signal<THREE.Camera> = new Signal()
+    public nodeSelected: Signal<THREE.Object3D> = new Signal()
+    public nodeDeselected: Signal<THREE.Object3D> = new Signal()
 
     /**
      * Initialize the viewer on a target canvas element.
@@ -159,6 +156,6 @@ export class Viewer {
      * @returns {Box3}
      */
     public getBuildVolumeBoundingBox () {
-        return this._buildVolumeManager.getBuildVolumeBoundingBox()
+        return this._buildVolumeManager.getBuildVolume().getBoundingBox()
     }
 }

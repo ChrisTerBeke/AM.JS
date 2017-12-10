@@ -10,7 +10,8 @@ export enum NODE_TYPES {
     NONE = 'none',
     SCENE = 'scene',
     MESH = 'mesh',
-    GROUP = 'group'
+    GROUP = 'group',
+    BUILD_VOLUME = 'buildVolume'
 }
 
 /**
@@ -28,7 +29,7 @@ export interface Node {
      * Get the node type.
      * @returns {NODE_TYPES}
      */
-    getType(): NODE_TYPES
+    getType(): string
 
     /**
      * Get the parent node.

@@ -16,11 +16,8 @@ export class MeshNode extends THREE.Mesh implements Node {
     public geometry: THREE.Geometry // override for typing
     public material: THREE.MeshPhongMaterial // override with specific material type for typing
     
-    // node
-    protected _nodeType: NODE_TYPES = NODE_TYPES.MESH
-    
     // transforms
-    private _selected: boolean // TODO: move to MeshNode?
+    private _selected: boolean
     private _transformMode: TRANSFORM_MODES
     private _allowTransform: boolean
     
@@ -41,6 +38,9 @@ export class MeshNode extends THREE.Mesh implements Node {
     
     constructor (geometry?: THREE.Geometry) {
         super()
+        
+        // override type
+        this.type = NODE_TYPES.MESH
         
         // geometry from existing or create new
         this.geometry = geometry || new THREE.Geometry()
@@ -69,8 +69,8 @@ export class MeshNode extends THREE.Mesh implements Node {
         return this.uuid
     }
     
-    public getType (): NODE_TYPES {
-        return this._nodeType
+    public getType (): string {
+        return this.type
     }
 
     public addChild (node: THREE.Object3D): void {
@@ -111,6 +111,14 @@ export class MeshNode extends THREE.Mesh implements Node {
     }
 
     /**
+     * Set the mesh selected or not.
+     * @param {boolean} selected
+     */
+    public setSelected(selected?: boolean = true) {
+        this._selected = selected
+    }
+
+    /**
      * Check if the mesh is selected.
      * @returns {boolean}
      */
@@ -118,6 +126,18 @@ export class MeshNode extends THREE.Mesh implements Node {
         return this._selected
     }
 
+    /**
+     * Check if the mesh can be transformed.
+     * @returns {boolean}
+     */
+    public canTransform () {
+        return this._allowTransform
+    }
+
+    /**
+     * Update the mesh node properties before a canvas render cycle is executed.
+     * @param {RenderOptions} renderOptions
+     */
     public render (renderOptions?: RenderOptions) {
         
 
@@ -138,13 +158,22 @@ export class MeshNode extends THREE.Mesh implements Node {
         if (!this._isDirty && renderOptions.source === `meshNode_${this.getId()}`) {
             return
         }
+        
+        // set the base color
+        this.material.color = this._baseColor
 
+        // set the highlight color if selected
         if (this._selected) {
-            this.material.color = this._selectionColor
+            this.material.emissive = new THREE.Color(
+                this._baseColor.r * 0.2,
+                this._baseColor.g * 0.2,
+                this._baseColor.b * 0.2
+            )
         } else {
-            this.material.color = this._baseColor
+            this.material.emissive = new THREE.Color(0, 0, 0)
         }
 
+        // mark as clean as we're done rendering all the changes
         this._isDirty = false
     }
     

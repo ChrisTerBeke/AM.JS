@@ -1,8 +1,11 @@
 'use strict'
 
 import * as THREE from 'three'
+window['THREE'] = THREE
+import 'three/examples/js/controls/TransformControls.js'
+
 import { Viewer } from '../Viewer'
-import { Node } from '../nodes/NodeInterface'
+import { Node, NODE_TYPES } from '../nodes/NodeInterface'
 import { SceneNode } from '../nodes/SceneNode'
 import { MeshNode } from '../nodes/MeshNode'
 import { SimpleMeshFactory } from '../nodes/SimpleMeshFactory'
@@ -11,7 +14,17 @@ import { RENDER_TYPES } from './RenderManager'
 export class SceneManager {
     
     private _viewer: Viewer
+    private _canvas: HTMLCanvasElement
+    private _camera: THREE.Camera
+    
     private _sceneRootNode: SceneNode
+    private _controls: THREE.TransformControls
+    private _selectedNode: Node
+    private _raycaster: THREE.Raycaster
+    
+    // stores the mouse up and down positions so we know if it was a click or a drag
+    private _mouseDownPosition: THREE.Vector2
+    private _mouseUpPosition: THREE.Vector2
 
     private static __instance: SceneManager
 
@@ -27,12 +40,27 @@ export class SceneManager {
     
     constructor (viewer: Viewer) {
         this._viewer = viewer
+        this._canvas = this._viewer.getCanvas()
+        
+        // create the root scene node
         this._sceneRootNode = new SceneNode()
+        
+        // setup the raycaster helper
+        this._raycaster = new THREE.Raycaster()
         
         // add lighting
         this._addAmbientLight(new THREE.Color(0x909090))
         this._addDirectionalLight(new THREE.Vector3(-500, -700, -400), new THREE.Color(0xdddddd), 0.2)
         this._addShadowedLight(new THREE.Vector3(500, 700, 400), new THREE.Color(0xffffff), 0.9)
+
+        // initialize the transform controls on the camera object
+        viewer.cameraCreated.connect(camera => {
+            this._camera = camera
+            this._updateTransformControls()
+        })
+        
+        // start listening for mouse events
+        this._addEventListeners()
     }
 
     /**
@@ -160,7 +188,7 @@ export class SceneManager {
         
         parentNode.traverse(child => {
             if (child.uuid === nodeId) {
-                nodeToFind = child
+                return nodeToFind = child
             }
         })
         
@@ -206,5 +234,154 @@ export class SceneManager {
     private _addAmbientLight (color: THREE.Color): void {
         const ambientLight = new THREE.AmbientLight(color)
         this.addLight(ambientLight)
+    }
+    
+    private _addEventListeners () {
+        this._canvas.addEventListener('mousemove', this._onMouseMove.bind(this), false)
+        this._canvas.addEventListener('mousedown', this._onMouseDown.bind(this), false)
+        this._canvas.addEventListener('mouseup', this._onMouseUp.bind(this), false)
+    }
+    
+    private _updateTransformControls () {
+        
+        this._controls = new THREE.TransformControls(this._camera, this._canvas)
+
+        // disable the camera controls while transforming
+        this._controls.addEventListener('mouseDown', event => {
+            this._viewer.transformStarted.emit()
+        })
+        
+        // enable the camera controls when done transforming
+        this._controls.addEventListener('mouseUp', event => {
+            this._viewer.transformEnded.emit()
+        })
+        
+        // re-render when transforming an object
+        this._controls.addEventListener('change', event => {
+            this._viewer.onRender.emit({
+                source: SceneManager.name,
+                type: RENDER_TYPES.TRANSFORMATION
+            })
+            this._controls.update()
+        })
+    }
+    
+    private _onMouseDown (event: MouseEvent) {
+        
+        event.preventDefault()
+        
+        // get the mouse position in scene
+        const mousePosition = this._getMousePosition(event.clientX, event.clientY)
+        this._mouseDownPosition = new THREE.Vector2().fromArray(mousePosition)
+    }
+    
+    private _onMouseUp (event: MouseEvent) {
+
+        event.preventDefault()
+        
+        // get the mouse position in scene
+        const mousePosition = this._getMousePosition(event.clientX, event.clientY)
+        this._mouseUpPosition = new THREE.Vector2().fromArray(mousePosition)
+
+        // ignore if it was a drag, not a click
+        if (this._mouseDownPosition.distanceTo(this._mouseUpPosition) > 0) {
+            return
+        }
+
+        this._handleMouseClick()
+    }
+    
+    private _onMouseMove (event: MouseEvent) {
+
+        event.preventDefault()
+        
+    }
+    
+    private _getMousePosition (x, y) {
+        const canvasBounds = this._canvas.getBoundingClientRect()
+        return [
+            (x - canvasBounds.left) / canvasBounds.width,
+            (y - canvasBounds.top) / canvasBounds.height
+        ]
+    }
+
+    /**
+     * Handle a potential mouse click.
+     * This method detects any ray cast intersects and selected the targeted scene node.
+     * @private
+     */
+    private _handleMouseClick () {
+        
+        // detach the transform controls from their current object binding
+        this._controls.detach()
+
+        // get all intersects between the mouse position and the scene node tree
+        const intersects = this._intersectsNode(this._mouseUpPosition, this._sceneRootNode)
+        
+        let selectedNode = null
+        
+        // find the first intersection that intersects with an object of type mesh
+        intersects.forEach((intersection: THREE.Intersection) => {
+            
+            // ignore non-mesh nodes or when something was already selected
+            if (selectedNode || intersection.object.type !== NODE_TYPES.MESH) {
+                return
+            }
+            
+            // TODO: use flag for disabling transformations
+
+            selectedNode = intersection.object as Node
+        })
+        
+        // properly set selected flag on all objects
+        this._sceneRootNode.traverse(object => {
+            
+            // ignore non-mesh nodes
+            if (object.type !== NODE_TYPES.MESH) {
+                return
+            }
+
+            let node = object as MeshNode
+            
+            // check and set if the node is the selected node or not
+            if (selectedNode && node.getId() == selectedNode.getId()) {
+                node.setSelected(true)
+                this._viewer.nodeSelected.emit(node)
+                this._selectedNode = node
+            } else {
+                node.setSelected(false)
+                this._viewer.nodeDeselected.emit(node)
+            }
+        })
+        
+        // render so selected model can be highlighted
+        this._viewer.onRender.emit({
+            source: SceneManager.name,
+            type: RENDER_TYPES.SCENE
+        })
+    }
+
+    /**
+     * Check if a given mouse click point intersects with a scene node.
+     * @param {Vector3} point
+     * @param {Object3D} node
+     * @returns {Intersection[]}
+     * @private
+     */
+    private _intersectsNode (point: THREE.Vector2, node: THREE.Object3D): THREE.Intersection[] {
+        
+        // create a line from the cursor position through the camera
+        const intersectionLine = new THREE.Vector3(
+            (point.x * 2) - 1,
+            - (point.y * 2) + 1,
+            0.5
+        )
+        intersectionLine.unproject(this._camera)
+        
+        // set the raycaster to use the intersection line
+        this._raycaster.set(this._camera.position, intersectionLine.sub(this._camera.position).normalize())
+        
+        // check if the given node is intersected by that line
+        return this._raycaster.intersectObject(node, true)
     }
 }
