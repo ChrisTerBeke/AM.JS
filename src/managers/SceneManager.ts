@@ -235,13 +235,21 @@ export class SceneManager {
         const ambientLight = new THREE.AmbientLight(color)
         this.addLight(ambientLight)
     }
-    
+
+    /**
+     * Start listening to mouse events for object selection.
+     * @private
+     */
     private _addEventListeners () {
-        this._canvas.addEventListener('mousemove', this._onMouseMove.bind(this), false)
         this._canvas.addEventListener('mousedown', this._onMouseDown.bind(this), false)
         this._canvas.addEventListener('mouseup', this._onMouseUp.bind(this), false)
     }
-    
+
+    /**
+     * Update the transform controls when needed.
+     * This is executed after a camera change.
+     * @private
+     */
     private _updateTransformControls () {
         
         this._controls = new THREE.TransformControls(this._camera, this._canvas)
@@ -264,6 +272,9 @@ export class SceneManager {
             })
             this._controls.update()
         })
+        
+        // add the controls to the scene so they can be interacted with
+        this._sceneRootNode.add(this._controls)
     }
     
     private _onMouseDown (event: MouseEvent) {
@@ -289,12 +300,6 @@ export class SceneManager {
         }
 
         this._handleMouseClick()
-    }
-    
-    private _onMouseMove (event: MouseEvent) {
-
-        event.preventDefault()
-        
     }
     
     private _getMousePosition (x, y) {
@@ -348,11 +353,17 @@ export class SceneManager {
                 node.setSelected(true)
                 this._viewer.nodeSelected.emit(node)
                 this._selectedNode = node
+                this._setTransformControlsForNode(node)
             } else {
                 node.setSelected(false)
                 this._viewer.nodeDeselected.emit(node)
             }
         })
+        
+        // detach the transform controls when no node was selected
+        if (!selectedNode) {
+            this._setTransformControlsForNode()
+        }
         
         // render so selected model can be highlighted
         this._viewer.onRender.emit({
@@ -383,5 +394,25 @@ export class SceneManager {
         
         // check if the given node is intersected by that line
         return this._raycaster.intersectObject(node, true)
+    }
+    
+    private _setTransformControlsForNode (node?) {
+        
+        // if node is not given, detach the controls from everything
+        if (!node) {
+            this._controls.detach()
+            return
+        }
+        
+        // prevent attaching controls to non-mesh node
+        if (node.type !== NODE_TYPES.MESH) {
+            return
+        }
+
+        // TODO: set mode dynamically
+        this._controls.setMode('translate')
+        
+        // attach the controls to the target node
+        this._controls.attach(node)
     }
 }

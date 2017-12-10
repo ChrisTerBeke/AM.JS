@@ -595,11 +595,19 @@ var SceneManager = /** @class */ (function () {
         var ambientLight = new THREE.AmbientLight(color);
         this.addLight(ambientLight);
     };
+    /**
+     * Start listening to mouse events for object selection.
+     * @private
+     */
     SceneManager.prototype._addEventListeners = function () {
-        this._canvas.addEventListener('mousemove', this._onMouseMove.bind(this), false);
         this._canvas.addEventListener('mousedown', this._onMouseDown.bind(this), false);
         this._canvas.addEventListener('mouseup', this._onMouseUp.bind(this), false);
     };
+    /**
+     * Update the transform controls when needed.
+     * This is executed after a camera change.
+     * @private
+     */
     SceneManager.prototype._updateTransformControls = function () {
         var _this = this;
         this._controls = new THREE.TransformControls(this._camera, this._canvas);
@@ -619,6 +627,8 @@ var SceneManager = /** @class */ (function () {
             });
             _this._controls.update();
         });
+        // add the controls to the scene so they can be interacted with
+        this._sceneRootNode.add(this._controls);
     };
     SceneManager.prototype._onMouseDown = function (event) {
         event.preventDefault();
@@ -636,9 +646,6 @@ var SceneManager = /** @class */ (function () {
             return;
         }
         this._handleMouseClick();
-    };
-    SceneManager.prototype._onMouseMove = function (event) {
-        event.preventDefault();
     };
     SceneManager.prototype._getMousePosition = function (x, y) {
         var canvasBounds = this._canvas.getBoundingClientRect();
@@ -680,12 +687,17 @@ var SceneManager = /** @class */ (function () {
                 node.setSelected(true);
                 _this._viewer.nodeSelected.emit(node);
                 _this._selectedNode = node;
+                _this._setTransformControlsForNode(node);
             }
             else {
                 node.setSelected(false);
                 _this._viewer.nodeDeselected.emit(node);
             }
         });
+        // detach the transform controls when no node was selected
+        if (!selectedNode) {
+            this._setTransformControlsForNode();
+        }
         // render so selected model can be highlighted
         this._viewer.onRender.emit({
             source: SceneManager.name,
@@ -707,6 +719,21 @@ var SceneManager = /** @class */ (function () {
         this._raycaster.set(this._camera.position, intersectionLine.sub(this._camera.position).normalize());
         // check if the given node is intersected by that line
         return this._raycaster.intersectObject(node, true);
+    };
+    SceneManager.prototype._setTransformControlsForNode = function (node) {
+        // if node is not given, detach the controls from everything
+        if (!node) {
+            this._controls.detach();
+            return;
+        }
+        // prevent attaching controls to non-mesh node
+        if (node.type !== NodeInterface_1.NODE_TYPES.MESH) {
+            return;
+        }
+        // TODO: set mode dynamically
+        this._controls.setMode('translate');
+        // attach the controls to the target node
+        this._controls.attach(node);
     };
     return SceneManager;
 }());
