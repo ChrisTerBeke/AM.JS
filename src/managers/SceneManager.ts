@@ -270,6 +270,10 @@ export class SceneManager {
                 source: SceneManager.name,
                 type: RENDER_TYPES.TRANSFORMATION
             })
+        })
+        
+        // update the controls when rendering (scaling)
+        this._viewer.onRender.connect(renderOptions => {
             this._controls.update()
         })
         
@@ -335,7 +339,7 @@ export class SceneManager {
             
             // TODO: use flag for disabling transformations
 
-            selectedNode = intersection.object as Node
+            selectedNode = intersection.object
         })
         
         // properly set selected flag on all objects

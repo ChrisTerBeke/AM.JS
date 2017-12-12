@@ -625,6 +625,9 @@ var SceneManager = /** @class */ (function () {
                 source: SceneManager.name,
                 type: RenderManager_1.RENDER_TYPES.TRANSFORMATION
             });
+        });
+        // update the controls when rendering (scaling)
+        this._viewer.onRender.connect(function (renderOptions) {
             _this._controls.update();
         });
         // add the controls to the scene so they can be interacted with

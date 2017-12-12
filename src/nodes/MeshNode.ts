@@ -28,7 +28,6 @@ export class MeshNode extends THREE.Mesh implements Node {
 
     // properties
     private _baseColor: THREE.Color
-    private _selectionColor: THREE.Color
 
     // event fired when property changes
     public onPropertyChanged: Signal<any> = new Signal()
@@ -114,7 +113,7 @@ export class MeshNode extends THREE.Mesh implements Node {
      * Set the mesh selected or not.
      * @param {boolean} selected
      */
-    public setSelected(selected?: boolean = true) {
+    public setSelected(selected: boolean = true) {
         this._selected = selected
     }
 
