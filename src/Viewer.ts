@@ -1,9 +1,7 @@
 'use strict'
 
-// three.js
-import * as THREE from 'THREE'
-
 // utils
+import * as THREE from 'three'
 import { Signal } from './utils/Signal'
 
 // managers
@@ -15,6 +13,7 @@ import { BuildVolumeManager } from './managers/BuildVolumeManager'
 
 // nodes
 import { SceneNode } from './nodes/SceneNode'
+import { MeshNode } from './nodes/MeshNode'
 
 /**
  * The Viewer class holds one complete instance of the 3D viewer.
@@ -32,36 +31,34 @@ export class Viewer {
     private _buildVolumeManager: BuildVolumeManager
 
     // signals used for event based triggering
-    public onRender: Signal<RenderOptions>
-    public onReady: Signal<any>
+    public onRender: Signal<RenderOptions> = new Signal()
+    public onReady: Signal<any> = new Signal()
+    public transformStarted: Signal<any> = new Signal()
+    public transformEnded: Signal<any> = new Signal()
+    public cameraCreated: Signal<THREE.Camera> = new Signal()
+    public nodeSelected: Signal<THREE.Object3D> = new Signal()
+    public nodeDeselected: Signal<THREE.Object3D> = new Signal()
 
     /**
-     * Only use the constructor for creating signals.
-     * All other actions should be done in the init method.
+     * Initialize the viewer on a target canvas element.
+     * The reason this is not done in the constructor is to allow for signal binding before initializing.
+     * @param {HTMLCanvasElement} canvas
      */
-    constructor () {
-        this.onRender = new Signal()
-        this.onReady = new Signal()
-    }
-    
     public init (canvas: HTMLCanvasElement): void {
         
         // set the canvas element to start rendering
         this.setCanvas(canvas)
 
         // initialize manager singletons
+        // note: they have to be loaded in this specific order
         this._sceneManager = SceneManager.getInstance(this)
+        this._buildVolumeManager = BuildVolumeManager.getInstance(this)
         this._cameraManager = CameraManager.getInstance(this)
         this._renderManager = RenderManager.getInstance(this)
         this._animationManager = AnimationManager.getInstance(this)
-        this._buildVolumeManager = BuildVolumeManager.getInstance(this)
         
         // add the camera
         this._sceneManager.addCamera(this._cameraManager.getCamera())
-        
-        // add a temporary light source
-        const ambientLight = new THREE.AmbientLight(0x909090)
-        this._sceneManager.addLight(ambientLight)
 
         // finished with initializing
         this.onReady.emit()
@@ -139,9 +136,26 @@ export class Viewer {
     }
 
     /**
-     * Adds a simple cube/box to the scene.
+     * Adds a simple cube/box mesh to the scene.
+     * @returns {MeshNode}
      */
-    public addCube (): void {
-        this._sceneManager.addCube()
+    public addCube (parentNodeId?: string): MeshNode {
+        return this._sceneManager.addCube(parentNodeId)
+    }
+
+    /**
+     * Remove a mesh node from the scene.
+     * @param {string} nodeId
+     */
+    public removeMeshNode (nodeId: string): void {
+        this._sceneManager.removeMeshNode(nodeId)
+    }
+
+    /**
+     * Get the bounding box of the build volume.
+     * @returns {Box3}
+     */
+    public getBuildVolumeBoundingBox () {
+        return this._buildVolumeManager.getBuildVolume().getBoundingBox()
     }
 }

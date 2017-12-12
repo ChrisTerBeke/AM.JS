@@ -1,9 +1,9 @@
 'use strict'
 
 import * as THREE from 'three'
-import { BaseNode } from './BaseNode'
-import { NODE_TYPES} from './NodeInterface'
+import { Node, NODE_TYPES } from './NodeInterface'
 import { RenderOptions } from '../managers/RenderManager'
+import { Signal } from '../utils/Signal'
 
 export enum TRANSFORM_MODES {
     TRANSLATE = 'translate',
@@ -11,33 +11,13 @@ export enum TRANSFORM_MODES {
     SCALE = 'scale'
 }
 
-export class MeshNode extends BaseNode {
+export class MeshNode extends THREE.Mesh implements Node {
 
-    protected _nodeType: NODE_TYPES = NODE_TYPES.MESH
-    private _mesh: Mesh
-    
-    constructor (geometry?: THREE.Geometry) {
-        super()
-        this._mesh = new Mesh(geometry)
-    }
-    
-    public getGeometry (): THREE.Geometry {
-        return this._mesh.geometry
-    }
-    
-    public getMesh (): THREE.Mesh {
-        return this._mesh
-    }
-    
-    protected _render () {
-        this._mesh.render()
-    }
-}
-
-export class Mesh extends THREE.Mesh {
+    public geometry: THREE.Geometry // override for typing
+    public material: THREE.MeshPhongMaterial // override with specific material type for typing
     
     // transforms
-    private _selected: boolean // TODO: move to MeshNode?
+    private _selected: boolean
     private _transformMode: TRANSFORM_MODES
     private _allowTransform: boolean
     
@@ -45,24 +25,27 @@ export class Mesh extends THREE.Mesh {
     private _originalBounds: THREE.Box3
     private _currentBounds: THREE.Box3
     private _modelHeight: number
-    
-    // color
-    public geometry: THREE.Geometry // override for typing
-    public material: THREE.MeshPhongMaterial // override with specific material type for typing
+
+    // properties
     private _baseColor: THREE.Color
-    private _selectionColor: THREE.Color
+
+    // event fired when property changes
+    public onPropertyChanged: Signal<any> = new Signal()
+    
+    // rendering
+    private _isDirty: boolean
     
     constructor (geometry?: THREE.Geometry) {
         super()
         
-        // extend THREE.Mesh with new type
-        this.type = 'MeshNode'
+        // override type
+        this.type = NODE_TYPES.MESH
         
         // geometry from existing or create new
         this.geometry = geometry || new THREE.Geometry()
         
         // set default material
-        this._baseColor = new THREE.Color().setRGB(0, 0, 0)
+        this._baseColor = new THREE.Color().setRGB(.5, .5, .5)
         this.material = new THREE.MeshPhongMaterial({
             color: this._baseColor,
             shininess: 50
@@ -78,6 +61,35 @@ export class Mesh extends THREE.Mesh {
         this._allowTransform = true
         this._originalBounds = this._currentBounds = this._calculateBounds()
         this._modelHeight = this._calculateModelHeight()
+        this._isDirty = true
+    }
+
+    public getId (): string {
+        return this.uuid
+    }
+    
+    public getType (): string {
+        return this.type
+    }
+
+    public addChild (node: THREE.Object3D): void {
+        this.add(node)
+    }
+
+    public removeChild (node: THREE.Object3D): void {
+        this.remove(node)
+    }
+
+    public getChildren (): THREE.Object3D[] {
+        // @ts-ignore
+        // noinspection TypeScriptValidateTypes
+        return this.children
+    }
+
+    public getParent (): THREE.Object3D {
+        // @ts-ignore
+        // noinspection TypeScriptValidateTypes
+        return this.parent
     }
 
     /**
@@ -89,6 +101,23 @@ export class Mesh extends THREE.Mesh {
     }
 
     /**
+     * Set the base color of the mesh.
+     * @param {Color} color
+     */
+    public setColor (color: THREE.Color): void {
+        this._baseColor = color
+        this._propertyChanged('color', color)
+    }
+
+    /**
+     * Set the mesh selected or not.
+     * @param {boolean} selected
+     */
+    public setSelected(selected: boolean = true) {
+        this._selected = selected
+    }
+
+    /**
      * Check if the mesh is selected.
      * @returns {boolean}
      */
@@ -97,14 +126,55 @@ export class Mesh extends THREE.Mesh {
     }
 
     /**
-     * Apply correct styles with each render cycle.
+     * Check if the mesh can be transformed.
+     * @returns {boolean}
+     */
+    public canTransform () {
+        return this._allowTransform
+    }
+
+    /**
+     * Update the mesh node properties before a canvas render cycle is executed.
+     * @param {RenderOptions} renderOptions
      */
     public render (renderOptions?: RenderOptions) {
-        if (this._selected) {
-            this.material.color = this._selectionColor
-        } else {
-            this.material.color = this._baseColor
+        
+
+        // render self
+        this._render(renderOptions)
+
+        // render children if existing
+        for (let child of this.getChildren()) {
+            if (child.type === NODE_TYPES.MESH) {
+                const node = child as MeshNode
+                node.render(renderOptions)
+            }
         }
+    }
+
+    protected _render (renderOptions?: RenderOptions) {
+        
+        // don't re-render anything when we're sure nothing changed
+        if (!this._isDirty && renderOptions.source === `meshNode_${this.getId()}`) {
+            return
+        }
+        
+        // set the base color
+        this.material.color = this._baseColor
+
+        // set the highlight color if selected
+        if (this._selected) {
+            this.material.emissive = new THREE.Color(
+                this._baseColor.r * 0.2,
+                this._baseColor.g * 0.2,
+                this._baseColor.b * 0.2
+            )
+        } else {
+            this.material.emissive = new THREE.Color(0, 0, 0)
+        }
+
+        // mark as clean as we're done rendering all the changes
+        this._isDirty = false
     }
     
     private _calculateBounds () {
@@ -115,5 +185,10 @@ export class Mesh extends THREE.Mesh {
     
     private _calculateModelHeight () {
         return this._currentBounds.max.z - this._currentBounds.min.z
+    }
+
+    private _propertyChanged (propertyName: string, value: any) {
+        this._isDirty = true
+        this.onPropertyChanged.emit({ nodeId: this.getId(), propertyName, value })
     }
 }

@@ -1,6 +1,9 @@
 'use strict'
 
 import * as THREE from 'three'
+window['THREE'] = THREE
+import 'three/examples/js/controls/OrbitControls.js'
+
 import { Viewer } from '../Viewer'
 import { RENDER_TYPES } from './RenderManager'
 
@@ -17,6 +20,7 @@ export class CameraManager {
     private _viewer: Viewer
     private _canvas: HTMLCanvasElement
     private _camera: THREE.PerspectiveCamera | THREE.OrthographicCamera
+    private _controls: THREE.OrbitControls
 
     private static __instance: CameraManager
 
@@ -33,7 +37,19 @@ export class CameraManager {
     constructor (viewerInstance: Viewer) {
         this._viewer = viewerInstance
         this._canvas = this._viewer.getCanvas()
+        
+        // initialize the default camera
         this.setCameraType(CAMERA_TYPES.PERSPECTIVE)
+
+        // disable the camera controls while transforming
+        this._viewer.transformStarted.connect(() => {
+            this.enableCameraControls(false)
+        })
+
+        // enable the camera controls when done transforming
+        this._viewer.transformEnded.connect(() => {
+            this.enableCameraControls()
+        })
     }
 
     /**
@@ -59,13 +75,31 @@ export class CameraManager {
             console.error(`Camera type ${type} is not a valid camera type.`)
         }
         
-        // reset position and target
-        this.setCameraPosition(new THREE.Vector3(100, 100, 100))
-        this.setCameraTarget(new THREE.Vector3(0, 0, 0))
+        // set the correct 'up' direction to the z axis
+        this._camera.up.set(0,0,1)
+        
+        // reset position and target to center of build volume
+        const buildVolume = this._viewer.getBuildVolumeBoundingBox()
+        
+        // zoom the camera our far enough to see the build volume
+        this.setCameraPosition(new THREE.Vector3(
+            buildVolume.max.x * 2,
+            buildVolume.max.y * 2,
+            buildVolume.max.z * 2
+        ))
+        
+        // focus the camera and controls on the center of the build volume surface
+        this.setCameraTarget(new THREE.Vector3(
+            (buildVolume.max.x - buildVolume.min.x) / 2,
+            (buildVolume.max.y - buildVolume.min.y) / 2,
+            buildVolume.min.z
+        ))
+        
+        // trigger camera bindings
+        this._viewer.cameraCreated.emit(this._camera)
         
         // trigger a render update
         this._viewer.onRender.emit({
-            force: true,
             source: CameraManager.name,
             type: RENDER_TYPES.CAMERA
         })
@@ -85,6 +119,42 @@ export class CameraManager {
      */
     public setCameraTarget (target: THREE.Vector3) {
         this._camera.lookAt(target)
+        this._updateCameraControls(target)
+    }
+
+    /**
+     * Enable or disable the camera controls.
+     * Only one set of controls can be active at the same time so the camera controls are disabled when transforming nodes.
+     * @param {boolean} enabled
+     */
+    public enableCameraControls (enabled: boolean = true): void {
+        this._controls.enabled = enabled
+        
+        this._viewer.onRender.emit({
+            source: CameraManager.name,
+            type: RENDER_TYPES.CAMERA
+        })
+    }
+
+    /**
+     * Update the camera controls after a new camera was created.
+     * @private
+     */
+    private _updateCameraControls (cameraTarget: THREE.Vector3) {
+        
+        // create camera controls if needed
+        if (!this._controls) {
+            this._controls = new THREE.OrbitControls(this._camera, this._canvas)
+            this._controls.addEventListener('change', event => {
+                this._viewer.onRender.emit({
+                    source: CameraManager.name,
+                    type: RENDER_TYPES.CAMERA
+                })
+            })
+        }
+        
+        // set the target position to be in sync with the camera
+        this._controls.target.set(cameraTarget.x, cameraTarget.y, cameraTarget.z)
     }
 
     /**

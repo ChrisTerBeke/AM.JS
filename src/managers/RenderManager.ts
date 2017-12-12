@@ -1,10 +1,7 @@
 'use strict'
 
-import * as _ from 'underscore'
 import * as THREE from 'three'
 import { Viewer } from '../Viewer'
-
-export const RENDER_EVENTS_LIMIT = 10
 
 /**
  * Render types allow the render manager to only render parts of the scene that were actually updated.
@@ -32,7 +29,6 @@ export class RenderManager {
     private _viewer: Viewer
     private _canvas: HTMLCanvasElement
     private _renderer: THREE.WebGLRenderer
-    private _renderEvents: RenderOptions[] = []
 
     private static __instance: RenderManager
 
@@ -47,20 +43,22 @@ export class RenderManager {
     }
 
     public constructor (viewer: Viewer) {
+        
+        // find the canvas element to render on
         this._viewer = viewer
         this._canvas = viewer.getCanvas()
         
         // create WebGL renderer
         this._renderer = new THREE.WebGLRenderer({
             canvas: this._canvas,
-            antialias: true,
+            // antialias: true,
             alpha: true,
-            preserveDrawingBuffer: true
+            // preserveDrawingBuffer: true
         })
         
         // set other rendering options that are not available in constructor
-        this._renderer.shadowMapEnabled = true
-        this._renderer.shadowMapType = THREE.PCFSoftShadowMap
+        this._renderer.shadowMap.enabled = true
+        this._renderer.shadowMap.type = THREE.PCFSoftShadowMap
         this._renderer.setPixelRatio(window.devicePixelRatio ? window.devicePixelRatio : 1)
         this._renderer.setSize(this._canvas.offsetWidth, this._canvas.offsetHeight)
         this._renderer.setClearColor(0xffffff)
@@ -81,36 +79,18 @@ export class RenderManager {
     }
     
     private _render (renderOptions?: RenderOptions): void {
-
-        // add options to list
-        this._renderEvents.push(renderOptions)
         
-        // clear the scene
-        this._renderer.clear()
+        // these render types should trigger a re-render of scene nodes
+        const NODE_RENDER_TYPES = [
+            RENDER_TYPES.CANVAS,
+            RENDER_TYPES.MESH,
+            RENDER_TYPES.SCENE,
+            RENDER_TYPES.TRANSFORMATION
+        ]
         
-        // render when forced
-        if (renderOptions.force) {
-            this._renderNodes()
-        }
-        
-        // render when event limit is reached
-        else if (this._renderEvents.length >= RENDER_EVENTS_LIMIT) {
-            
-            // get a list of unique render types
-            const uniqueRenderTypes = _(this._renderEvents).chain().flatten().pluck('type').unique().value()
-            
-            // render all nodes when needed
-            if (_.intersection(uniqueRenderTypes, [
-                RENDER_TYPES.CANVAS,
-                RENDER_TYPES.MESH,
-                RENDER_TYPES.SCENE,
-                RENDER_TYPES.TRANSFORMATION
-            ])) {
-                this._renderNodes(uniqueRenderTypes)
-            }
-            
-            // clear render events list
-            this._clearRenderEvents()
+        // render all nodes when needed
+        if (renderOptions.force || NODE_RENDER_TYPES.indexOf(renderOptions.type) > -1) {
+            this._renderNodes(renderOptions)
         }
         
         // target THREE.Scene with THREE.Camera
@@ -124,9 +104,5 @@ export class RenderManager {
 
         // render the scene root and all children recursively
         sceneRootNode.render(renderOptions)
-    }
-    
-    private _clearRenderEvents () {
-        this._renderEvents = []
     }
 }
