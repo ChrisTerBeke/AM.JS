@@ -35,25 +35,25 @@ export interface Node {
      * Get the parent node.
      * @returns {Node}
      */
-    getParent(): Node | THREE.Object3D | null
+    getParent(): THREE.Object3D | null
 
     /**
      * Get child nodes.
      * @returns {Node[]}
      */
-    getChildren(): Node[] | THREE.Object3D[]
+    getChildren(): THREE.Object3D[]
 
         /**
      * Add a child node.
      * @param {Node} childNode
      */
-    addChild(childNode: Node | THREE.Object3D): void
+    addChild(childNode: THREE.Object3D): void
 
     /**
      * Remove a child node.
      * @param {Node} childNode
      */
-    removeChild(childNode: Node | THREE.Object3D): void
+    removeChild(childNode: THREE.Object3D): void
 
     /**
      * Re-render this node

@@ -80,13 +80,13 @@ export class MeshNode extends THREE.Mesh implements Node {
         this.remove(node)
     }
 
-    public getChildren (): Node[] {
+    public getChildren (): THREE.Object3D[] {
         // @ts-ignore
         // noinspection TypeScriptValidateTypes
         return this.children
     }
 
-    public getParent (): Node {
+    public getParent (): THREE.Object3D {
         // @ts-ignore
         // noinspection TypeScriptValidateTypes
         return this.parent
@@ -145,8 +145,9 @@ export class MeshNode extends THREE.Mesh implements Node {
 
         // render children if existing
         for (let child of this.getChildren()) {
-            if (child.render) {
-                child.render(renderOptions)
+            if (child.type === NODE_TYPES.MESH) {
+                const node = child as MeshNode
+                node.render(renderOptions)
             }
         }
     }

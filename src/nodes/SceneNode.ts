@@ -3,6 +3,7 @@
 import * as THREE from 'three'
 import { Node, NODE_TYPES } from './NodeInterface'
 import { RenderOptions } from '../managers/RenderManager'
+import { MeshNode } from './MeshNode'
 
 export class SceneNode extends THREE.Scene implements Node {
     
@@ -37,13 +38,13 @@ export class SceneNode extends THREE.Scene implements Node {
         this.remove(node)
     }
 
-    public getChildren (): Node[] {
+    public getChildren (): THREE.Object3D[] {
         // @ts-ignore
         // noinspection TypeScriptValidateTypes
         return this.children
     }
 
-    public getParent (): Node {
+    public getParent (): THREE.Object3D {
         // @ts-ignore
         // noinspection TypeScriptValidateTypes
         return this.parent
@@ -51,8 +52,9 @@ export class SceneNode extends THREE.Scene implements Node {
 
     public render (renderOptions?: RenderOptions) {
         for (let child of this.getChildren()) {
-            if (child.render) {
-                child.render(renderOptions)
+            if (child.type === NODE_TYPES.MESH) {
+                const node = child as MeshNode
+                node.render(renderOptions)
             }
         }
     }

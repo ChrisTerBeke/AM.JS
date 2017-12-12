@@ -26,19 +26,19 @@ export class BuildVolume extends THREE.Mesh implements Node {
         return this.type
     }
 
-    public getParent (): Node | THREE.Object3D | null {
+    public getParent (): THREE.Object3D | null {
         return null
     }
 
-    public getChildren (): Node[] | THREE.Object3D[] {
+    public getChildren (): THREE.Object3D[] {
         return []
     }
 
-    public addChild (childNode: Node | THREE.Object3D): void {
+    public addChild (childNode: THREE.Object3D): void {
         return
     }
 
-    public removeChild (childNode: Node | THREE.Object3D): void {
+    public removeChild (childNode: THREE.Object3D): void {
         return
     }
 
