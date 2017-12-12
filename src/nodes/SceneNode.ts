@@ -4,8 +4,12 @@ import * as THREE from 'three'
 import { Node, NODE_TYPES } from './NodeInterface'
 import { RenderOptions } from '../managers/RenderManager'
 import { MeshNode } from './MeshNode'
+import { Signal } from '../utils/Signal'
 
 export class SceneNode extends THREE.Scene implements Node {
+    
+    public nodeAdded: Signal<THREE.Object3D> = new Signal()
+    public nodeRemoved: Signal<string> = new Signal()
     
     constructor () {
         super()
@@ -32,10 +36,13 @@ export class SceneNode extends THREE.Scene implements Node {
 
     public addChild (node: THREE.Object3D): void {
         this.add(node)
+        this.nodeAdded.emit(node)
     }
 
     public removeChild (node: THREE.Object3D): void {
+        const nodeId = node.uuid
         this.remove(node)
+        this.nodeRemoved.emit(nodeId)
     }
 
     public getChildren (): THREE.Object3D[] {

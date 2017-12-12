@@ -44,6 +44,8 @@ export class SceneManager {
         
         // create the root scene node
         this._sceneRootNode = new SceneNode()
+        this._sceneRootNode.nodeAdded.connect(this._onSceneChanged.bind(this))
+        this._sceneRootNode.nodeRemoved.connect(this._onSceneChanged.bind(this))
         
         // setup the raycaster helper
         this._raycaster = new THREE.Raycaster()
@@ -162,6 +164,17 @@ export class SceneManager {
      */
     public addLight (light: THREE.Light) {
         this._sceneRootNode.getScene().add(light)
+    }
+
+    /**
+     * Handle scene changes.
+     * @private
+     */
+    private _onSceneChanged () {
+        this._viewer.onRender.emit({
+            type: RENDER_TYPES.SCENE,
+            source: `sceneNode_${this._sceneRootNode.getId()}`
+        })
     }
 
     /**

@@ -34,23 +34,23 @@
 	
 	        console.log('download URL:', blobUrl);
 	
-	        var xhr = new XMLHttpRequest;
-	        xhr.responseType = 'blob';
-	
-	        xhr.onload = function() {
-		        var recoveredBlob = xhr.response;
-		
-		        var reader = new FileReader;
-		
-		        reader.onload = function() {
-			        window.location = reader.result;
-		        };
-		
-		        reader.readAsDataURL(recoveredBlob);
-	        };
-	
-	        xhr.open('GET', blobUrl);
-	        xhr.send();
+	        // var xhr = new XMLHttpRequest;
+	        // xhr.responseType = 'blob';
+            //
+	        // xhr.onload = function() {
+		     //    var recoveredBlob = xhr.response;
+            //
+		     //    var reader = new FileReader;
+            //
+		     //    reader.onload = function() {
+			 //        window.location = reader.result;
+		     //    };
+            //
+		     //    reader.readAsDataURL(recoveredBlob);
+	        // };
+            //
+	        // xhr.open('GET', blobUrl);
+	        // xhr.send();
         });
         
         // start the viewer instance

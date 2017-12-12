@@ -11,6 +11,10 @@ export class BuildVolume extends THREE.Mesh implements Node {
 
         // override type
         this.type = NODE_TYPES.BUILD_VOLUME
+
+        // defaults
+        this.castShadow = false
+        this.receiveShadow = false
         
         this._createGeometry(width, depth, height)
         this.geometry.computeBoundingBox()
@@ -19,7 +23,7 @@ export class BuildVolume extends THREE.Mesh implements Node {
     }
 
     public getId (): string {
-        return undefined
+        return this.uuid
     }
 
     public getType (): string {

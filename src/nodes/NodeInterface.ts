@@ -11,7 +11,8 @@ export enum NODE_TYPES {
     SCENE = 'scene',
     MESH = 'mesh',
     GROUP = 'group',
-    BUILD_VOLUME = 'buildVolume'
+    BUILD_VOLUME = 'buildVolume',
+    BUILD_PLATE = 'buildPlate'
 }
 
 /**
