@@ -12,10 +12,9 @@ export class CartesianBuildPlate extends BuildPlate {
     }
     
     protected _createMaterial () {
-        const texture = new THREE.TextureLoader().load(CartesianBuildPlateGridTexture)
         this.material = new THREE.MeshBasicMaterial({
             color: new THREE.Color(.8, .8, .8),
-            map: texture
+            map: new THREE.TextureLoader().load(CartesianBuildPlateGridTexture)
         })
     }
 }
