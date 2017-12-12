@@ -11,6 +11,9 @@
     ],
     "exclude": [
         "node_modules",
-        "lib"
+        "docs",
+        "dist",
+        "build",
+        "examples"
     ]
 }

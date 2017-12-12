@@ -17,6 +17,40 @@
         viewer.onReady.connect(function () {
             var cubeMeshNode = viewer.addCube();
 	        cubeMeshNode.setColor(new THREE.Color(0.4, 0.5, 1));
+	        
+	        var geometryExporter = viewer.getGeometryExporter();
+	        var geometryData = geometryExporter.export();
+            console.log('geometryData', geometryData);
+            
+            var binarySTLExporter = viewer.getBinarySTLExporter();
+            var binarySTLData = binarySTLExporter.export();
+            console.log('binarySTLData', binarySTLData);
+            
+            var blob = new Blob([binarySTLData.buffer], {
+            	type: 'octet/stream'
+            });
+            
+            var blobUrl = URL.createObjectURL(blob);
+	
+	        console.log('download URL:', blobUrl);
+	
+	        var xhr = new XMLHttpRequest;
+	        xhr.responseType = 'blob';
+	
+	        xhr.onload = function() {
+		        var recoveredBlob = xhr.response;
+		
+		        var reader = new FileReader;
+		
+		        reader.onload = function() {
+			        window.location = reader.result;
+		        };
+		
+		        reader.readAsDataURL(recoveredBlob);
+	        };
+	
+	        xhr.open('GET', blobUrl);
+	        xhr.send();
         });
         
         // start the viewer instance

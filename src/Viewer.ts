@@ -15,6 +15,10 @@ import { BuildVolumeManager } from './managers/BuildVolumeManager'
 import { SceneNode } from './nodes/SceneNode'
 import { MeshNode } from './nodes/MeshNode'
 
+// exporters
+import { GeometryExporter } from './exporters/GeometryExporter'
+import { BinarySTLExporter } from './exporters/BinarySTLExporter'
+
 /**
  * The Viewer class holds one complete instance of the 3D viewer.
  * It has one instance for each manager, a list of signals and the public API.
@@ -157,5 +161,23 @@ export class Viewer {
      */
     public getBuildVolumeBoundingBox () {
         return this._buildVolumeManager.getBuildVolume().getBoundingBox()
+    }
+
+    /**
+     * Get a new instance of the geometry exporter.
+     * @param options
+     * @returns {GeometryExporter}
+     */
+    public getGeometryExporter (options?) {
+        return new GeometryExporter(this, options)
+    }
+
+    /**
+     * Get a new instance of the binary STL exporter.
+     * @param options
+     * @returns {BinarySTLExporter}
+     */
+    public getBinarySTLExporter (options?) {
+        return new BinarySTLExporter(this, options)
     }
 }

@@ -8,6 +8,9 @@ var CameraManager_1 = require("./managers/CameraManager");
 var RenderManager_1 = require("./managers/RenderManager");
 var AnimationManager_1 = require("./managers/AnimationManager");
 var BuildVolumeManager_1 = require("./managers/BuildVolumeManager");
+// exporters
+var GeometryExporter_1 = require("./exporters/GeometryExporter");
+var BinarySTLExporter_1 = require("./exporters/BinarySTLExporter");
 /**
  * The Viewer class holds one complete instance of the 3D viewer.
  * It has one instance for each manager, a list of signals and the public API.
@@ -127,11 +130,223 @@ var Viewer = /** @class */ (function () {
     Viewer.prototype.getBuildVolumeBoundingBox = function () {
         return this._buildVolumeManager.getBuildVolume().getBoundingBox();
     };
+    /**
+     * Get a new instance of the geometry exporter.
+     * @param options
+     * @returns {GeometryExporter}
+     */
+    Viewer.prototype.getGeometryExporter = function (options) {
+        return new GeometryExporter_1.GeometryExporter(this, options);
+    };
+    /**
+     * Get a new instance of the binary STL exporter.
+     * @param options
+     * @returns {BinarySTLExporter}
+     */
+    Viewer.prototype.getBinarySTLExporter = function (options) {
+        return new BinarySTLExporter_1.BinarySTLExporter(this, options);
+    };
     return Viewer;
 }());
 exports.Viewer = Viewer;
 
-},{"./managers/AnimationManager":3,"./managers/BuildVolumeManager":4,"./managers/CameraManager":5,"./managers/RenderManager":6,"./managers/SceneManager":7,"./utils/Signal":14}],2:[function(require,module,exports){
+},{"./exporters/BinarySTLExporter":2,"./exporters/GeometryExporter":4,"./managers/AnimationManager":6,"./managers/BuildVolumeManager":7,"./managers/CameraManager":8,"./managers/RenderManager":9,"./managers/SceneManager":10,"./utils/Signal":17}],2:[function(require,module,exports){
+'use strict';
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+var Exporter_1 = require("./Exporter");
+var THREE = require("three");
+var NodeInterface_1 = require("../nodes/NodeInterface");
+var STL_HEADER_OFFSET = 80;
+/**
+ * The binary STL exporter converts the mesh nodes into a binary STL file.
+ * The file is then presented as downloadable blob.
+ */
+var BinarySTLExporter = /** @class */ (function (_super) {
+    __extends(BinarySTLExporter, _super);
+    function BinarySTLExporter() {
+        return _super !== null && _super.apply(this, arguments) || this;
+    }
+    BinarySTLExporter.prototype._parse = function () {
+        var objects = [];
+        var triangles = 0;
+        var fileHeader = 'Created with AM.JS, a browser based 3D viewer.'; // everything after 80 characters will be ignored
+        // TODO: select a root node to start parsing from
+        var rootSceneNode = this._viewer.getSceneNode();
+        // find all mesh nodes
+        rootSceneNode.traverse(function (node) {
+            // only export mesh nodes
+            if (node.type !== NodeInterface_1.NODE_TYPES.MESH) {
+                return;
+            }
+            // clone the geometry before doing any transformations
+            var newGeometry = node.geometry.clone();
+            // parse a buffer geometry to a normal geometry if needed
+            if (newGeometry instanceof THREE.BufferGeometry) {
+                newGeometry = new THREE.Geometry().fromBufferGeometry(newGeometry);
+            }
+            // keep track of the total amount of triangles (used for buffer size allocation)
+            triangles += newGeometry.faces.length;
+            // store the object for parsing later
+            objects.push({
+                matrixWorld: node.matrixWorld,
+                vertices: newGeometry.vertices,
+                faces: newGeometry.faces
+            });
+        });
+        // compute the buffer length, 96 bytes are needed to store 1 triangle
+        var bufferLength = (triangles * 96) + STL_HEADER_OFFSET + 4;
+        var arrayBuffer = new ArrayBuffer(bufferLength);
+        var output = new DataView(arrayBuffer);
+        // convert the header text into int8 characters
+        for (var i = 0; i < STL_HEADER_OFFSET; i++) {
+            output.setUint8(i, fileHeader.charCodeAt(i));
+        }
+        // start the offset with header size
+        var offset = STL_HEADER_OFFSET;
+        output.setUint32(offset, triangles, true);
+        offset += 4;
+        // we loop again, this time getting the actual mesh data
+        for (var _i = 0, objects_1 = objects; _i < objects_1.length; _i++) {
+            var node = objects_1[_i];
+            var matrixWorld = node.matrixWorld;
+            var vertices = node.vertices;
+            var faces = node.faces;
+            var normalMatrixWorld = new THREE.Matrix3();
+            normalMatrixWorld.getNormalMatrix(matrixWorld);
+            for (var _a = 0, faces_1 = faces; _a < faces_1.length; _a++) {
+                var face = faces_1[_a];
+                // get the normalized vector for each face
+                var vector = new THREE.Vector3();
+                vector.copy(face.normal).applyMatrix3(normalMatrixWorld).normalize();
+                // write face normals to output buffer
+                output.setFloat32(offset, vector.x, true);
+                offset += 4;
+                output.setFloat32(offset, vector.y, true);
+                offset += 4;
+                output.setFloat32(offset, vector.z, true);
+                offset += 4;
+                // get the triangle corners as indices
+                var indices = [face.a, face.b, face.c];
+                for (var j = 0; j < indices.length; j++) {
+                    // get world vector for each point in the triangle
+                    vector.copy(vertices[indices[j]]).applyMatrix4(matrixWorld);
+                    // write triangle corners to output buffer
+                    output.setFloat32(offset, vector.x, true);
+                    offset += 4;
+                    output.setFloat32(offset, vector.y, true);
+                    offset += 4;
+                    output.setFloat32(offset, vector.z, true);
+                    offset += 4;
+                }
+                // fill byte
+                output.setUint16(offset, 0, true);
+                offset += 2;
+            }
+        }
+        // set the export output
+        this._parsedData = output;
+    };
+    return BinarySTLExporter;
+}(Exporter_1.Exporter));
+exports.BinarySTLExporter = BinarySTLExporter;
+
+},{"../nodes/NodeInterface":14,"./Exporter":3,"three":18}],3:[function(require,module,exports){
+'use strict';
+Object.defineProperty(exports, "__esModule", { value: true });
+/**
+ * The base exporter class is an abstract class to base specific exporters on.
+ * Each exporter should at least implement a _parse method.
+ */
+var Exporter = /** @class */ (function () {
+    function Exporter(viewer, options) {
+        if (options === void 0) { options = {}; }
+        this._viewer = viewer;
+        this._options = options;
+    }
+    /**
+     * Run the parser and return the parsed data.
+     * @returns {any}
+     */
+    Exporter.prototype.export = function () {
+        this._parse();
+        return this._parsedData;
+    };
+    Exporter.prototype._parse = function () {
+        console.warn('Each exporter should implement _parse');
+    };
+    return Exporter;
+}());
+exports.Exporter = Exporter;
+
+},{}],4:[function(require,module,exports){
+'use strict';
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+var THREE = require("three");
+var Exporter_1 = require("./Exporter");
+var NodeInterface_1 = require("../nodes/NodeInterface");
+/**
+ * The geometry exporter exports all faces and vertices as plain arrays.
+ * Useful for fast exporting and direct parsing into other 3D software.
+ */
+var GeometryExporter = /** @class */ (function (_super) {
+    __extends(GeometryExporter, _super);
+    function GeometryExporter() {
+        return _super !== null && _super.apply(this, arguments) || this;
+    }
+    GeometryExporter.prototype._parse = function () {
+        var geometries = [];
+        // TODO: select a root node to start parsing from
+        var rootSceneNode = this._viewer.getSceneNode();
+        // find all mesh nodes
+        rootSceneNode.traverse(function (node) {
+            // only export mesh nodes
+            if (node.type !== NodeInterface_1.NODE_TYPES.MESH) {
+                return;
+            }
+            // clone the geometry before doing any transformations
+            var newGeometry = node.geometry.clone();
+            // parse a buffer geometry to a normal geometry if needed
+            if (newGeometry instanceof THREE.BufferGeometry) {
+                newGeometry = new THREE.Geometry().fromBufferGeometry(newGeometry);
+            }
+            // transform the geometry to the parent node's world matrix
+            var transformation = new THREE.Matrix4().makeRotationX(Math.PI / 2);
+            newGeometry.applyMatrix(node.matrixWorld);
+            newGeometry.applyMatrix(transformation);
+            // store the faces (indices) and vertices
+            geometries.push({
+                faces: newGeometry.faces,
+                vertices: newGeometry.vertices
+            });
+        });
+        // set the export output
+        this._parsedData = geometries;
+    };
+    return GeometryExporter;
+}(Exporter_1.Exporter));
+exports.GeometryExporter = GeometryExporter;
+
+},{"../nodes/NodeInterface":14,"./Exporter":3,"three":18}],5:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -141,7 +356,7 @@ window['THREE'] = THREE;
 // make sure Viewer is available in browser context
 window['Viewer'] = Viewer_1.Viewer;
 
-},{"./Viewer":1,"three":15}],3:[function(require,module,exports){
+},{"./Viewer":1,"three":18}],6:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var AnimationManager = /** @class */ (function () {
@@ -163,7 +378,7 @@ var AnimationManager = /** @class */ (function () {
 }());
 exports.AnimationManager = AnimationManager;
 
-},{}],4:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var CartesianBuildVolume_1 = require("../nodes/CartesianBuildVolume");
@@ -191,7 +406,7 @@ var BuildVolumeManager = /** @class */ (function () {
 }());
 exports.BuildVolumeManager = BuildVolumeManager;
 
-},{"../nodes/CartesianBuildVolume":9}],5:[function(require,module,exports){
+},{"../nodes/CartesianBuildVolume":12}],8:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -336,7 +551,7 @@ var CameraManager = /** @class */ (function () {
 }());
 exports.CameraManager = CameraManager;
 
-},{"./RenderManager":6,"three":15,"three/examples/js/controls/OrbitControls.js":16}],6:[function(require,module,exports){
+},{"./RenderManager":9,"three":18,"three/examples/js/controls/OrbitControls.js":19}],9:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -413,7 +628,7 @@ var RenderManager = /** @class */ (function () {
 }());
 exports.RenderManager = RenderManager;
 
-},{"three":15}],7:[function(require,module,exports){
+},{"three":18}],10:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -742,7 +957,7 @@ var SceneManager = /** @class */ (function () {
 }());
 exports.SceneManager = SceneManager;
 
-},{"../nodes/NodeInterface":11,"../nodes/SceneNode":12,"../nodes/SimpleMeshFactory":13,"./RenderManager":6,"three":15,"three/examples/js/controls/TransformControls.js":17}],8:[function(require,module,exports){
+},{"../nodes/NodeInterface":14,"../nodes/SceneNode":15,"../nodes/SimpleMeshFactory":16,"./RenderManager":9,"three":18,"three/examples/js/controls/TransformControls.js":20}],11:[function(require,module,exports){
 'use strict';
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
@@ -812,7 +1027,7 @@ var BuildVolume = /** @class */ (function (_super) {
 }(THREE.Mesh));
 exports.BuildVolume = BuildVolume;
 
-},{"./NodeInterface":11,"three":15}],9:[function(require,module,exports){
+},{"./NodeInterface":14,"three":18}],12:[function(require,module,exports){
 'use strict';
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
@@ -840,7 +1055,7 @@ var CartesianBuildVolume = /** @class */ (function (_super) {
 }(BuildVolume_1.BuildVolume));
 exports.CartesianBuildVolume = CartesianBuildVolume;
 
-},{"./BuildVolume":8,"three":15}],10:[function(require,module,exports){
+},{"./BuildVolume":11,"three":18}],13:[function(require,module,exports){
 'use strict';
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
@@ -959,8 +1174,9 @@ var MeshNode = /** @class */ (function (_super) {
         // render children if existing
         for (var _i = 0, _a = this.getChildren(); _i < _a.length; _i++) {
             var child = _a[_i];
-            if (child.render) {
-                child.render(renderOptions);
+            if (child.type === NodeInterface_1.NODE_TYPES.MESH) {
+                var node = child;
+                node.render(renderOptions);
             }
         }
     };
@@ -997,7 +1213,7 @@ var MeshNode = /** @class */ (function (_super) {
 }(THREE.Mesh));
 exports.MeshNode = MeshNode;
 
-},{"../utils/Signal":14,"./NodeInterface":11,"three":15}],11:[function(require,module,exports){
+},{"../utils/Signal":17,"./NodeInterface":14,"three":18}],14:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 /**
@@ -1012,7 +1228,7 @@ var NODE_TYPES;
     NODE_TYPES["BUILD_VOLUME"] = "buildVolume";
 })(NODE_TYPES = exports.NODE_TYPES || (exports.NODE_TYPES = {}));
 
-},{}],12:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 'use strict';
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
@@ -1067,8 +1283,9 @@ var SceneNode = /** @class */ (function (_super) {
     SceneNode.prototype.render = function (renderOptions) {
         for (var _i = 0, _a = this.getChildren(); _i < _a.length; _i++) {
             var child = _a[_i];
-            if (child.render) {
-                child.render(renderOptions);
+            if (child.type === NodeInterface_1.NODE_TYPES.MESH) {
+                var node = child;
+                node.render(renderOptions);
             }
         }
     };
@@ -1076,7 +1293,7 @@ var SceneNode = /** @class */ (function (_super) {
 }(THREE.Scene));
 exports.SceneNode = SceneNode;
 
-},{"./NodeInterface":11,"three":15}],13:[function(require,module,exports){
+},{"./NodeInterface":14,"three":18}],16:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -1099,7 +1316,7 @@ var SimpleMeshFactory = /** @class */ (function () {
 }());
 exports.SimpleMeshFactory = SimpleMeshFactory;
 
-},{"./MeshNode":10,"three":15}],14:[function(require,module,exports){
+},{"./MeshNode":13,"three":18}],17:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var Signal = /** @class */ (function () {
@@ -1119,7 +1336,7 @@ var Signal = /** @class */ (function () {
 }());
 exports.Signal = Signal;
 
-},{}],15:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
@@ -46184,7 +46401,7 @@ exports.Signal = Signal;
 
 })));
 
-},{}],16:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 /**
  * @author qiao / https://github.com/qiao
  * @author mrdoob / http://mrdoob.com
@@ -47228,7 +47445,7 @@ Object.defineProperties( THREE.OrbitControls.prototype, {
 
 } );
 
-},{}],17:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 /**
  * @author arodic / https://github.com/arodic
  */
@@ -48379,4 +48596,4 @@ Object.defineProperties( THREE.OrbitControls.prototype, {
 
 }() );
 
-},{}]},{},[2]);
+},{}]},{},[5]);
