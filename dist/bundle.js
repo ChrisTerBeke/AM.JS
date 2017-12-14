@@ -25,6 +25,7 @@ var Viewer = /** @class */ (function () {
         this.cameraCreated = new Signal_1.Signal();
         this.nodeSelected = new Signal_1.Signal();
         this.nodeDeselected = new Signal_1.Signal();
+        this.buildVolumeChanged = new Signal_1.Signal();
     }
     /**
      * Initialize the viewer on a target canvas element.
@@ -129,6 +130,15 @@ var Viewer = /** @class */ (function () {
      */
     Viewer.prototype.getBuildVolumeBoundingBox = function () {
         return this._buildVolumeManager.getBuildVolume().getBoundingBox();
+    };
+    /**
+     * Set the build volume size in mm.
+     * @param {number} width
+     * @param {number} depth
+     * @param {number} height
+     */
+    Viewer.prototype.setBuildVolumeSize = function (width, depth, height) {
+        this._buildVolumeManager.setBuildVolumeSize(width, depth, height);
     };
     /**
      * Get a new instance of the geometry exporter.
@@ -383,6 +393,7 @@ exports.AnimationManager = AnimationManager;
 Object.defineProperty(exports, "__esModule", { value: true });
 var CartesianBuildVolume_1 = require("../nodes/CartesianBuildVolume");
 var CartesianBuildPlate_1 = require("../nodes/CartesianBuildPlate");
+var RenderManager_1 = require("./RenderManager");
 /**
  * The build volume manager handles everything related to the 3D printer build volume.
  * It shows the print bed, volume outline and simulated print head.
@@ -391,9 +402,7 @@ var BuildVolumeManager = /** @class */ (function () {
     function BuildVolumeManager(viewer) {
         this._viewer = viewer;
         // set size (hardcoded for now)
-        this._width = 200;
-        this._depth = 200;
-        this._height = 200;
+        this.setBuildVolumeSize(200, 200, 200);
         // create the virtual volume and build plate mesh
         this._createBuildVolume();
         this._createBuildPlate();
@@ -412,6 +421,24 @@ var BuildVolumeManager = /** @class */ (function () {
     BuildVolumeManager.prototype.getBuildPlate = function () {
         return this._buildPlate;
     };
+    BuildVolumeManager.prototype.setBuildVolumeSize = function (width, depth, height) {
+        this._width = width;
+        this._depth = depth;
+        this._height = height;
+        // adjust the build volume if needed
+        if (this._buildVolume) {
+            this._buildVolume.setSize(width, depth, height);
+            this._viewer.buildVolumeChanged.emit(this._buildVolume.getBoundingBox());
+        }
+        // adjust the build plate if needed
+        if (this._buildPlate) {
+            this._buildPlate.setSize(width, depth);
+        }
+        this._viewer.onRender.emit({
+            source: BuildVolumeManager.name,
+            type: RenderManager_1.RENDER_TYPES.SCENE
+        });
+    };
     BuildVolumeManager.prototype._createBuildVolume = function () {
         this._buildVolume = new CartesianBuildVolume_1.CartesianBuildVolume(this._width, this._depth, this._height);
         this._viewer.getSceneNode().addChild(this._buildVolume);
@@ -427,7 +454,7 @@ var BuildVolumeManager = /** @class */ (function () {
 }());
 exports.BuildVolumeManager = BuildVolumeManager;
 
-},{"../nodes/CartesianBuildPlate":13,"../nodes/CartesianBuildVolume":14}],8:[function(require,module,exports){
+},{"../nodes/CartesianBuildPlate":13,"../nodes/CartesianBuildVolume":14,"./RenderManager":9}],8:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -444,19 +471,17 @@ var CAMERA_TYPES;
  */
 var CameraManager = /** @class */ (function () {
     function CameraManager(viewerInstance) {
-        var _this = this;
+        this._focusOnBuildVolumeCenter = true;
         this._viewer = viewerInstance;
         this._canvas = this._viewer.getCanvas();
         // initialize the default camera
         this.setCameraType(CAMERA_TYPES.PERSPECTIVE);
         // disable the camera controls while transforming
-        this._viewer.transformStarted.connect(function () {
-            _this.enableCameraControls(false);
-        });
+        this._viewer.transformStarted.connect(this.enableCameraControls.bind(this, false));
         // enable the camera controls when done transforming
-        this._viewer.transformEnded.connect(function () {
-            _this.enableCameraControls();
-        });
+        this._viewer.transformEnded.connect(this.enableCameraControls.bind(this, true));
+        // update the camera target when the build volume changes
+        this._viewer.buildVolumeChanged.connect(this._buildVolumeChanged.bind(this));
     }
     CameraManager.getInstance = function (viewerInstance) {
         // create instance if not yet existing
@@ -486,15 +511,12 @@ var CameraManager = /** @class */ (function () {
         }
         else {
             console.error("Camera type " + type + " is not a valid camera type.");
+            return;
         }
         // set the correct 'up' direction to the z axis
         this._camera.up.set(0, 0, 1);
-        // reset position and target to center of build volume
-        var buildVolume = this._viewer.getBuildVolumeBoundingBox();
-        // zoom the camera our far enough to see the build volume
-        this.setCameraPosition(new THREE.Vector3(buildVolume.max.x * 2, buildVolume.max.y * 2, buildVolume.max.z * 2));
-        // focus the camera and controls on the center of the build volume surface
-        this.setCameraTarget(new THREE.Vector3((buildVolume.max.x - buildVolume.min.x) / 2, (buildVolume.max.y - buildVolume.min.y) / 2, buildVolume.min.z));
+        // target at build volume center
+        this._setTargetAtBuildVolume();
         // trigger camera bindings
         this._viewer.cameraCreated.emit(this._camera);
         // trigger a render update
@@ -530,6 +552,30 @@ var CameraManager = /** @class */ (function () {
             source: CameraManager.name,
             type: RenderManager_1.RENDER_TYPES.CAMERA
         });
+    };
+    /**
+     * Update the camera target after the build volume changed.
+     * @param {Box3} buildVolumeBoundingBox
+     * @private
+     */
+    CameraManager.prototype._buildVolumeChanged = function (buildVolumeBoundingBox) {
+        // do nothing if we shouldn't focus on the center of the build plate
+        if (!this._focusOnBuildVolumeCenter) {
+            return;
+        }
+        this._setTargetAtBuildVolume(buildVolumeBoundingBox);
+    };
+    /**
+     * Helper function to set the camera target at the center of the build volume.
+     * @private
+     */
+    CameraManager.prototype._setTargetAtBuildVolume = function (buildVolumeBoundingBox) {
+        // get the correct bounding box
+        var buildVolume = buildVolumeBoundingBox || this._viewer.getBuildVolumeBoundingBox();
+        // zoom the camera our far enough to see the build volume
+        this.setCameraPosition(new THREE.Vector3(buildVolume.max.x * 2, buildVolume.max.y * 2, buildVolume.max.z * 2));
+        // focus the camera and controls on the center of the build volume surface
+        this.setCameraTarget(new THREE.Vector3((buildVolume.max.x - buildVolume.min.x) / 2, (buildVolume.max.y - buildVolume.min.y) / 2, buildVolume.min.z));
     };
     /**
      * Update the camera controls after a new camera was created.
@@ -1009,12 +1055,16 @@ var BuildPlate = /** @class */ (function (_super) {
     __extends(BuildPlate, _super);
     function BuildPlate(width, depth) {
         var _this = _super.call(this) || this;
+        // set size
+        _this._width = width;
+        _this._depth = depth;
+        _this._height = 1;
         // override type
         _this.type = NodeInterface_1.NODE_TYPES.BUILD_PLATE;
         // defaults
         _this.castShadow = false;
         _this.receiveShadow = true;
-        _this._createGeometry(width, depth);
+        _this._createGeometry();
         _this.geometry.computeBoundingBox();
         _this._createMaterial();
         return _this;
@@ -1040,7 +1090,16 @@ var BuildPlate = /** @class */ (function (_super) {
     BuildPlate.prototype.render = function (renderOptions) {
         return;
     };
-    BuildPlate.prototype._createGeometry = function (width, depth) {
+    BuildPlate.prototype.setSize = function (width, depth) {
+        this._width = width;
+        this._depth = depth;
+        this._resize();
+    };
+    BuildPlate.prototype._resize = function () {
+        this.position.set(this._width / 2, this._depth / 2, -this._height / 2);
+        this.scale.set(this._width, this._depth, this._height);
+    };
+    BuildPlate.prototype._createGeometry = function () {
         console.warn('Geometry should be implemented in BuildPlate sub types');
     };
     BuildPlate.prototype._createMaterial = function () {
@@ -1069,12 +1128,16 @@ var BuildVolume = /** @class */ (function (_super) {
     __extends(BuildVolume, _super);
     function BuildVolume(width, depth, height) {
         var _this = _super.call(this) || this;
+        // set size
+        _this._width = width;
+        _this._depth = depth;
+        _this._height = height;
         // override type
         _this.type = NodeInterface_1.NODE_TYPES.BUILD_VOLUME;
         // defaults
         _this.castShadow = false;
         _this.receiveShadow = false;
-        _this._createGeometry(width, depth, height);
+        _this._createGeometry();
         _this.geometry.computeBoundingBox();
         _this._createMaterial();
         return _this;
@@ -1100,16 +1163,26 @@ var BuildVolume = /** @class */ (function (_super) {
     BuildVolume.prototype.render = function (renderOptions) {
         return;
     };
+    BuildVolume.prototype.setSize = function (width, depth, height) {
+        this._width = width;
+        this._depth = depth;
+        this._height = height;
+        this._resize();
+    };
     /**
      * Get the min and max values for the bounding box.
      * @returns {Box3}
      */
     BuildVolume.prototype.getBoundingBox = function () {
         this.geometry.computeBoundingBox();
-        return this.geometry.boundingBox;
+        return new THREE.Box3(this.geometry.boundingBox.min.multiply(this.scale).add(this.position), this.geometry.boundingBox.max.multiply(this.scale).add(this.position));
     };
-    BuildVolume.prototype._createGeometry = function (width, depth, height) {
-        console.warn('Geometry should be implemented in BuildVolume sub types');
+    BuildVolume.prototype._resize = function () {
+        this.position.set(this._width / 2, this._depth / 2, this._height / 2);
+        this.scale.set(this._width, this._depth, this._height);
+    };
+    BuildVolume.prototype._createGeometry = function () {
+        console.warn('_createGeometry not implemented');
     };
     BuildVolume.prototype._createMaterial = function () {
         this.material = new THREE.MeshBasicMaterial({
@@ -1144,15 +1217,14 @@ var CartesianBuildPlate = /** @class */ (function (_super) {
     function CartesianBuildPlate() {
         return _super !== null && _super.apply(this, arguments) || this;
     }
-    CartesianBuildPlate.prototype._createGeometry = function (width, depth) {
-        this.geometry = new THREE.BoxGeometry(width, depth, 4);
-        this.geometry.translate(width / 2, depth / 2, -2);
+    CartesianBuildPlate.prototype._createGeometry = function () {
+        this.geometry = new THREE.BoxGeometry(1, 1, 1);
+        this._resize();
     };
     CartesianBuildPlate.prototype._createMaterial = function () {
-        var texture = new THREE.TextureLoader().load(CartesianBuildPlateGridTexture_1.default);
         this.material = new THREE.MeshBasicMaterial({
             color: new THREE.Color(.8, .8, .8),
-            map: texture
+            map: new THREE.TextureLoader().load(CartesianBuildPlateGridTexture_1.default)
         });
     };
     return CartesianBuildPlate;
@@ -1179,9 +1251,9 @@ var CartesianBuildVolume = /** @class */ (function (_super) {
     function CartesianBuildVolume(width, depth, height) {
         return _super.call(this, width, depth, height) || this;
     }
-    CartesianBuildVolume.prototype._createGeometry = function (width, depth, height) {
-        this.geometry = new THREE.BoxGeometry(width, depth, height);
-        this.geometry.translate(width / 2, depth / 2, height / 2);
+    CartesianBuildVolume.prototype._createGeometry = function () {
+        this.geometry = new THREE.BoxGeometry(1, 1, 1);
+        this._resize();
     };
     return CartesianBuildVolume;
 }(BuildVolume_1.BuildVolume));

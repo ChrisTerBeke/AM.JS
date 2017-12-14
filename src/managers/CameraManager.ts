@@ -21,6 +21,7 @@ export class CameraManager {
     private _canvas: HTMLCanvasElement
     private _camera: THREE.PerspectiveCamera | THREE.OrthographicCamera
     private _controls: THREE.OrbitControls
+    private _focusOnBuildVolumeCenter: boolean = true
 
     private static __instance: CameraManager
 
@@ -42,14 +43,13 @@ export class CameraManager {
         this.setCameraType(CAMERA_TYPES.PERSPECTIVE)
 
         // disable the camera controls while transforming
-        this._viewer.transformStarted.connect(() => {
-            this.enableCameraControls(false)
-        })
+        this._viewer.transformStarted.connect(this.enableCameraControls.bind(this, false))
 
         // enable the camera controls when done transforming
-        this._viewer.transformEnded.connect(() => {
-            this.enableCameraControls()
-        })
+        this._viewer.transformEnded.connect(this.enableCameraControls.bind(this, true))
+
+        // update the camera target when the build volume changes
+        this._viewer.buildVolumeChanged.connect(this._buildVolumeChanged.bind(this))
     }
 
     /**
@@ -73,27 +73,14 @@ export class CameraManager {
             this._camera = CameraManager._createPerspectiveCamera(this._canvas)
         } else {
             console.error(`Camera type ${type} is not a valid camera type.`)
+            return
         }
         
         // set the correct 'up' direction to the z axis
         this._camera.up.set(0,0,1)
-        
-        // reset position and target to center of build volume
-        const buildVolume = this._viewer.getBuildVolumeBoundingBox()
-        
-        // zoom the camera our far enough to see the build volume
-        this.setCameraPosition(new THREE.Vector3(
-            buildVolume.max.x * 2,
-            buildVolume.max.y * 2,
-            buildVolume.max.z * 2
-        ))
-        
-        // focus the camera and controls on the center of the build volume surface
-        this.setCameraTarget(new THREE.Vector3(
-            (buildVolume.max.x - buildVolume.min.x) / 2,
-            (buildVolume.max.y - buildVolume.min.y) / 2,
-            buildVolume.min.z
-        ))
+
+        // target at build volume center
+        this._setTargetAtBuildVolume()
         
         // trigger camera bindings
         this._viewer.cameraCreated.emit(this._camera)
@@ -137,10 +124,49 @@ export class CameraManager {
     }
 
     /**
+     * Update the camera target after the build volume changed.
+     * @param {Box3} buildVolumeBoundingBox
+     * @private
+     */
+    private _buildVolumeChanged (buildVolumeBoundingBox: THREE.Box3): void {
+        
+        // do nothing if we shouldn't focus on the center of the build plate
+        if (!this._focusOnBuildVolumeCenter) {
+            return
+        }
+        
+        this._setTargetAtBuildVolume(buildVolumeBoundingBox)
+    }
+
+    /**
+     * Helper function to set the camera target at the center of the build volume.
+     * @private
+     */
+    private _setTargetAtBuildVolume (buildVolumeBoundingBox?: THREE.Box3): void {
+
+        // get the correct bounding box
+        const buildVolume = buildVolumeBoundingBox || this._viewer.getBuildVolumeBoundingBox()
+
+        // zoom the camera our far enough to see the build volume
+        this.setCameraPosition(new THREE.Vector3(
+            buildVolume.max.x * 2,
+            buildVolume.max.y * 2,
+            buildVolume.max.z * 2
+        ))
+
+        // focus the camera and controls on the center of the build volume surface
+        this.setCameraTarget(new THREE.Vector3(
+            (buildVolume.max.x - buildVolume.min.x) / 2,
+            (buildVolume.max.y - buildVolume.min.y) / 2,
+            buildVolume.min.z
+        ))
+    }
+
+    /**
      * Update the camera controls after a new camera was created.
      * @private
      */
-    private _updateCameraControls (cameraTarget: THREE.Vector3) {
+    private _updateCameraControls (cameraTarget: THREE.Vector3): void {
         
         // create camera controls if needed
         if (!this._controls) {

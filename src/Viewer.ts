@@ -42,6 +42,7 @@ export class Viewer {
     public cameraCreated: Signal<THREE.Camera> = new Signal()
     public nodeSelected: Signal<THREE.Object3D> = new Signal()
     public nodeDeselected: Signal<THREE.Object3D> = new Signal()
+    public buildVolumeChanged: Signal<THREE.Box3> = new Signal()
 
     /**
      * Initialize the viewer on a target canvas element.
@@ -159,8 +160,18 @@ export class Viewer {
      * Get the bounding box of the build volume.
      * @returns {Box3}
      */
-    public getBuildVolumeBoundingBox () {
+    public getBuildVolumeBoundingBox (): THREE.Box3 {
         return this._buildVolumeManager.getBuildVolume().getBoundingBox()
+    }
+
+    /**
+     * Set the build volume size in mm.
+     * @param {number} width
+     * @param {number} depth
+     * @param {number} height
+     */
+    public setBuildVolumeSize (width: number, depth: number, height: number): void {
+        this._buildVolumeManager.setBuildVolumeSize(width, depth, height)
     }
 
     /**

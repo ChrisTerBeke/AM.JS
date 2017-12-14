@@ -5,6 +5,7 @@ import { BuildVolume } from '../nodes/BuildVolume'
 import { CartesianBuildVolume } from '../nodes/CartesianBuildVolume'
 import { BuildPlate } from '../nodes/BuildPlate'
 import { CartesianBuildPlate } from '../nodes/CartesianBuildPlate'
+import { RENDER_TYPES } from './RenderManager'
 
 /**
  * The build volume manager handles everything related to the 3D printer build volume.
@@ -36,9 +37,7 @@ export class BuildVolumeManager {
         this._viewer = viewer
         
         // set size (hardcoded for now)
-        this._width = 200
-        this._depth = 200
-        this._height = 200
+        this.setBuildVolumeSize(200, 200, 200)
         
         // create the virtual volume and build plate mesh
         this._createBuildVolume()
@@ -54,12 +53,34 @@ export class BuildVolumeManager {
         return this._buildPlate
     }
     
-    private _createBuildVolume () {
+    public setBuildVolumeSize (width: number, depth: number, height: number): void {
+        this._width = width
+        this._depth = depth
+        this._height = height
+        
+        // adjust the build volume if needed
+        if (this._buildVolume) {
+            this._buildVolume.setSize(width, depth, height)
+            this._viewer.buildVolumeChanged.emit(this._buildVolume.getBoundingBox())
+        }
+        
+        // adjust the build plate if needed
+        if (this._buildPlate) {
+            this._buildPlate.setSize(width, depth)
+        }
+        
+        this._viewer.onRender.emit({
+            source: BuildVolumeManager.name,
+            type: RENDER_TYPES.SCENE
+        })
+    }
+    
+    private _createBuildVolume (): void {
         this._buildVolume = new CartesianBuildVolume(this._width, this._depth, this._height)
         this._viewer.getSceneNode().addChild(this._buildVolume)
     }
     
-    private _createBuildPlate () {
+    private _createBuildPlate (): void {
         this._buildPlate = new CartesianBuildPlate(this._width, this._depth)
         this._viewer.getSceneNode().addChild(this._buildPlate)
     }

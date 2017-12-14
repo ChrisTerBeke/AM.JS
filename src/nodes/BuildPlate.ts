@@ -5,9 +5,18 @@ import { Node, NODE_TYPES } from './NodeInterface'
 import { RenderOptions } from '../managers/RenderManager'
 
 export class BuildPlate extends THREE.Mesh implements Node {
+
+    private _width: number
+    private _depth: number
+    private _height: number
     
     constructor (width, depth) {
         super()
+
+        // set size
+        this._width = width
+        this._depth = depth
+        this._height = 1
         
         // override type
         this.type = NODE_TYPES.BUILD_PLATE
@@ -16,7 +25,7 @@ export class BuildPlate extends THREE.Mesh implements Node {
         this.castShadow = false
         this.receiveShadow = true
         
-        this._createGeometry(width, depth)
+        this._createGeometry()
         this.geometry.computeBoundingBox()
 
         this._createMaterial()
@@ -50,7 +59,18 @@ export class BuildPlate extends THREE.Mesh implements Node {
         return
     }
 
-    protected _createGeometry (width, depth) {
+    public setSize (width: number, depth: number): void {
+        this._width = width
+        this._depth = depth
+        this._resize()
+    }
+    
+    protected _resize () {
+        this.position.set(this._width / 2, this._depth / 2, -this._height / 2)
+        this.scale.set(this._width, this._depth, this._height)
+    }
+
+    protected _createGeometry () {
         console.warn('Geometry should be implemented in BuildPlate sub types')
     }
 

@@ -6,9 +6,9 @@ import CartesianBuildPlateGridTexture from '../resources/textures/CartesianBuild
 
 export class CartesianBuildPlate extends BuildPlate {
     
-    protected _createGeometry (width, depth) {
-        this.geometry = new THREE.BoxGeometry(width, depth, 4)
-        this.geometry.translate(width / 2, depth / 2, -2)
+    protected _createGeometry () {
+        this.geometry = new THREE.BoxGeometry(1, 1, 1)
+        this._resize()
     }
     
     protected _createMaterial () {
