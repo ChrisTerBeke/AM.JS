@@ -1140,6 +1140,10 @@ var BuildVolume = /** @class */ (function (_super) {
         _this._createGeometry();
         _this.geometry.computeBoundingBox();
         _this._createMaterial();
+        // axis helper
+        var zeroPoint = new THREE.AxisHelper(5);
+        zeroPoint.position.set(0, 0, 0);
+        _this.children.push(zeroPoint);
         return _this;
     }
     BuildVolume.prototype.getId = function () {

@@ -29,6 +29,11 @@ export class BuildVolume extends THREE.Mesh implements Node {
         this.geometry.computeBoundingBox()
         
         this._createMaterial()
+        
+        // axis helper
+        const zeroPoint = new THREE.AxisHelper(5)
+        zeroPoint.position.set(0, 0, 0)
+        this.children.push(zeroPoint)
     }
 
     public getId (): string {
