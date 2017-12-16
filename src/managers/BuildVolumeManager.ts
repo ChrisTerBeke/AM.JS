@@ -45,11 +45,11 @@ export class BuildVolumeManager {
         this._showDisallowedAreas()
     }
     
-    public getBuildVolume () {
+    public getBuildVolume (): BuildVolume {
         return this._buildVolume
     }
     
-    public getBuildPlate () {
+    public getBuildPlate (): BuildPlate {
         return this._buildPlate
     }
     

@@ -11,6 +11,12 @@ import { MeshNode } from '../nodes/MeshNode'
 import { SimpleMeshFactory } from '../nodes/SimpleMeshFactory'
 import { RENDER_TYPES } from './RenderManager'
 
+export enum CONTROL_MODES {
+    TRANSLATE = 'translate',
+    ROTATE = 'rotate',
+    SCALE = 'scale'
+}
+
 export class SceneManager {
     
     private _viewer: Viewer
@@ -111,7 +117,7 @@ export class SceneManager {
         }
         
         this._viewer.onRender.emit({
-            type: RENDER_TYPES.MESH,
+            type: `${RENDER_TYPES.MESH}`,
             source: SceneManager.name
         })
         
@@ -135,18 +141,15 @@ export class SceneManager {
         
         // find the meshNode by ID
         let meshNode = this._findNodeById(this._sceneRootNode, nodeId)
-        
-        // unload the geometry
-        meshNode.geometry.dispose()
-        
-        // remove the actual mesh from the scene
-        this._sceneRootNode.getScene().remove(meshNode)
-        
+
         // disconnect the signal
         meshNode.onPropertyChanged.disconnect(this._onMeshNodePropertyChanged)
         
-        // make sure the mesh node is not hanging around in memory anymore
-        meshNode = undefined
+        // unload the geometry
+        meshNode.geometry.dispose()
+
+        // remove the actual mesh from the scene
+        this._sceneRootNode.getScene().remove(meshNode)
     }
 
     /**
@@ -154,7 +157,6 @@ export class SceneManager {
      * @param {Camera} camera
      */
     public addCamera (camera: THREE.Camera) {
-        // TODO: move to scene node
         this._sceneRootNode.getScene().add(camera)
     }
 
@@ -167,12 +169,35 @@ export class SceneManager {
     }
 
     /**
+     * Set the control mode for transformations.
+     * @param {CONTROL_MODES} controlMode
+     */
+    public setControlMode (controlMode: CONTROL_MODES) {
+        this._controls.setMode(`${controlMode}`)
+        
+        // set the correct space to give the best user experience
+        if (controlMode == CONTROL_MODES.SCALE) {
+            this._controls.setSpace('local')
+        } else {
+            this._controls.setSpace('world')
+        }
+    }
+
+    /**
+     * Set the snapping distance for transformations.
+     * @param {number} distance
+     */
+    public setControlSnapDistance (distance: number) {
+        this._controls.setSnap(distance)
+    }
+
+    /**
      * Handle scene changes.
      * @private
      */
     private _onSceneChanged () {
         this._viewer.onRender.emit({
-            type: RENDER_TYPES.SCENE,
+            type: `${RENDER_TYPES.SCENE}`,
             source: `sceneNode_${this._sceneRootNode.getId()}`
         })
     }
@@ -184,7 +209,7 @@ export class SceneManager {
      */
     private _onMeshNodePropertyChanged (propertyChangedData: any) {
         this._viewer.onRender.emit({
-            type: RENDER_TYPES.MESH,
+            type: `${RENDER_TYPES.MESH}`,
             source: `meshNode_${propertyChangedData.nodeId}`
         })
     }
@@ -268,25 +293,25 @@ export class SceneManager {
         this._controls = new THREE.TransformControls(this._camera, this._canvas)
 
         // disable the camera controls while transforming
-        this._controls.addEventListener('mouseDown', event => {
+        this._controls.addEventListener('mouseDown', () => {
             this._viewer.transformStarted.emit()
         })
         
         // enable the camera controls when done transforming
-        this._controls.addEventListener('mouseUp', event => {
+        this._controls.addEventListener('mouseUp', () => {
             this._viewer.transformEnded.emit()
         })
         
         // re-render when transforming an object
-        this._controls.addEventListener('change', event => {
+        this._controls.addEventListener('change', () => {
             this._viewer.onRender.emit({
                 source: SceneManager.name,
-                type: RENDER_TYPES.TRANSFORMATION
+                type: `${RENDER_TYPES.TRANSFORMATION}`
             })
         })
         
         // update the controls when rendering (scaling)
-        this._viewer.onRender.connect(renderOptions => {
+        this._viewer.onRender.connect(() => {
             this._controls.update()
         })
         
@@ -385,7 +410,7 @@ export class SceneManager {
         // render so selected model can be highlighted
         this._viewer.onRender.emit({
             source: SceneManager.name,
-            type: RENDER_TYPES.SCENE
+            type: `${RENDER_TYPES.SCENE}`
         })
     }
 
@@ -425,9 +450,6 @@ export class SceneManager {
         if (node.type !== NODE_TYPES.MESH) {
             return
         }
-
-        // TODO: set mode dynamically
-        this._controls.setMode('translate')
         
         // attach the controls to the target node
         this._controls.attach(node)

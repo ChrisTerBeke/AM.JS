@@ -26,6 +26,8 @@ var Viewer = /** @class */ (function () {
         this.nodeSelected = new Signal_1.Signal();
         this.nodeDeselected = new Signal_1.Signal();
         this.buildVolumeChanged = new Signal_1.Signal();
+        // other public properties
+        this.CONTROL_MODES = SceneManager_1.CONTROL_MODES;
     }
     /**
      * Initialize the viewer on a target canvas element.
@@ -64,7 +66,7 @@ var Viewer = /** @class */ (function () {
         this.onRender.emit({
             force: true,
             source: Viewer.name,
-            type: RenderManager_1.RENDER_TYPES.CANVAS
+            type: "" + RenderManager_1.RENDER_TYPES.CANVAS
         });
     };
     /**
@@ -139,6 +141,20 @@ var Viewer = /** @class */ (function () {
      */
     Viewer.prototype.setBuildVolumeSize = function (width, depth, height) {
         this._buildVolumeManager.setBuildVolumeSize(width, depth, height);
+    };
+    /**
+     * Set the control mode for mesh transformations.
+     * @param {CONTROL_MODES} controlMode
+     */
+    Viewer.prototype.setControlMode = function (controlMode) {
+        this._sceneManager.setControlMode(controlMode);
+    };
+    /**
+     * Set the snap distance for mesh transformations.
+     * @param {number} distance
+     */
+    Viewer.prototype.setControlSnapDistance = function (distance) {
+        this._sceneManager.setControlSnapDistance(distance);
     };
     /**
      * Get a new instance of the geometry exporter.
@@ -666,17 +682,17 @@ var RenderManager = /** @class */ (function () {
     RenderManager.prototype.render = function () {
         this._render({
             source: RenderManager.name,
-            type: RENDER_TYPES.SCENE,
+            type: "" + RENDER_TYPES.SCENE,
             force: false
         });
     };
     RenderManager.prototype._render = function (renderOptions) {
         // these render types should trigger a re-render of scene nodes
         var NODE_RENDER_TYPES = [
-            RENDER_TYPES.CANVAS,
-            RENDER_TYPES.MESH,
-            RENDER_TYPES.SCENE,
-            RENDER_TYPES.TRANSFORMATION
+            "" + RENDER_TYPES.CANVAS,
+            "" + RENDER_TYPES.MESH,
+            "" + RENDER_TYPES.SCENE,
+            "" + RENDER_TYPES.TRANSFORMATION
         ];
         // render all nodes when needed
         if (renderOptions.force || NODE_RENDER_TYPES.indexOf(renderOptions.type) > -1) {
@@ -705,6 +721,12 @@ var NodeInterface_1 = require("../nodes/NodeInterface");
 var SceneNode_1 = require("../nodes/SceneNode");
 var SimpleMeshFactory_1 = require("../nodes/SimpleMeshFactory");
 var RenderManager_1 = require("./RenderManager");
+var CONTROL_MODES;
+(function (CONTROL_MODES) {
+    CONTROL_MODES["TRANSLATE"] = "translate";
+    CONTROL_MODES["ROTATE"] = "rotate";
+    CONTROL_MODES["SCALE"] = "scale";
+})(CONTROL_MODES = exports.CONTROL_MODES || (exports.CONTROL_MODES = {}));
 var SceneManager = /** @class */ (function () {
     function SceneManager(viewer) {
         var _this = this;
@@ -770,7 +792,7 @@ var SceneManager = /** @class */ (function () {
             this._sceneRootNode.addChild(meshNode);
         }
         this._viewer.onRender.emit({
-            type: RenderManager_1.RENDER_TYPES.MESH,
+            type: "" + RenderManager_1.RENDER_TYPES.MESH,
             source: SceneManager.name
         });
         return meshNode;
@@ -790,21 +812,18 @@ var SceneManager = /** @class */ (function () {
     SceneManager.prototype.removeMeshNode = function (nodeId) {
         // find the meshNode by ID
         var meshNode = this._findNodeById(this._sceneRootNode, nodeId);
+        // disconnect the signal
+        meshNode.onPropertyChanged.disconnect(this._onMeshNodePropertyChanged);
         // unload the geometry
         meshNode.geometry.dispose();
         // remove the actual mesh from the scene
         this._sceneRootNode.getScene().remove(meshNode);
-        // disconnect the signal
-        meshNode.onPropertyChanged.disconnect(this._onMeshNodePropertyChanged);
-        // make sure the mesh node is not hanging around in memory anymore
-        meshNode = undefined;
     };
     /**
      * Add a camera to the scene.
      * @param {Camera} camera
      */
     SceneManager.prototype.addCamera = function (camera) {
-        // TODO: move to scene node
         this._sceneRootNode.getScene().add(camera);
     };
     /**
@@ -815,12 +834,33 @@ var SceneManager = /** @class */ (function () {
         this._sceneRootNode.getScene().add(light);
     };
     /**
+     * Set the control mode for transformations.
+     * @param {CONTROL_MODES} controlMode
+     */
+    SceneManager.prototype.setControlMode = function (controlMode) {
+        this._controls.setMode("" + controlMode);
+        // set the correct space to give the best user experience
+        if (controlMode == CONTROL_MODES.SCALE) {
+            this._controls.setSpace('local');
+        }
+        else {
+            this._controls.setSpace('world');
+        }
+    };
+    /**
+     * Set the snapping distance for transformations.
+     * @param {number} distance
+     */
+    SceneManager.prototype.setControlSnapDistance = function (distance) {
+        this._controls.setSnap(distance);
+    };
+    /**
      * Handle scene changes.
      * @private
      */
     SceneManager.prototype._onSceneChanged = function () {
         this._viewer.onRender.emit({
-            type: RenderManager_1.RENDER_TYPES.SCENE,
+            type: "" + RenderManager_1.RENDER_TYPES.SCENE,
             source: "sceneNode_" + this._sceneRootNode.getId()
         });
     };
@@ -831,7 +871,7 @@ var SceneManager = /** @class */ (function () {
      */
     SceneManager.prototype._onMeshNodePropertyChanged = function (propertyChangedData) {
         this._viewer.onRender.emit({
-            type: RenderManager_1.RENDER_TYPES.MESH,
+            type: "" + RenderManager_1.RENDER_TYPES.MESH,
             source: "meshNode_" + propertyChangedData.nodeId
         });
     };
@@ -906,22 +946,22 @@ var SceneManager = /** @class */ (function () {
         var _this = this;
         this._controls = new THREE.TransformControls(this._camera, this._canvas);
         // disable the camera controls while transforming
-        this._controls.addEventListener('mouseDown', function (event) {
+        this._controls.addEventListener('mouseDown', function () {
             _this._viewer.transformStarted.emit();
         });
         // enable the camera controls when done transforming
-        this._controls.addEventListener('mouseUp', function (event) {
+        this._controls.addEventListener('mouseUp', function () {
             _this._viewer.transformEnded.emit();
         });
         // re-render when transforming an object
-        this._controls.addEventListener('change', function (event) {
+        this._controls.addEventListener('change', function () {
             _this._viewer.onRender.emit({
                 source: SceneManager.name,
-                type: RenderManager_1.RENDER_TYPES.TRANSFORMATION
+                type: "" + RenderManager_1.RENDER_TYPES.TRANSFORMATION
             });
         });
         // update the controls when rendering (scaling)
-        this._viewer.onRender.connect(function (renderOptions) {
+        this._viewer.onRender.connect(function () {
             _this._controls.update();
         });
         // add the controls to the scene so they can be interacted with
@@ -998,7 +1038,7 @@ var SceneManager = /** @class */ (function () {
         // render so selected model can be highlighted
         this._viewer.onRender.emit({
             source: SceneManager.name,
-            type: RenderManager_1.RENDER_TYPES.SCENE
+            type: "" + RenderManager_1.RENDER_TYPES.SCENE
         });
     };
     /**
@@ -1027,8 +1067,6 @@ var SceneManager = /** @class */ (function () {
         if (node.type !== NodeInterface_1.NODE_TYPES.MESH) {
             return;
         }
-        // TODO: set mode dynamically
-        this._controls.setMode('translate');
         // attach the controls to the target node
         this._controls.attach(node);
     };

@@ -20,7 +20,7 @@ export enum RENDER_TYPES {
  */
 export interface RenderOptions {
     source: string
-    type: RENDER_TYPES
+    type: string
     force?: boolean
 }
 
@@ -73,7 +73,7 @@ export class RenderManager {
     public render (): void {
         this._render({
             source: RenderManager.name,
-            type: RENDER_TYPES.SCENE,
+            type: `${RENDER_TYPES.SCENE}`,
             force: false
         })
     }
@@ -82,10 +82,10 @@ export class RenderManager {
         
         // these render types should trigger a re-render of scene nodes
         const NODE_RENDER_TYPES = [
-            RENDER_TYPES.CANVAS,
-            RENDER_TYPES.MESH,
-            RENDER_TYPES.SCENE,
-            RENDER_TYPES.TRANSFORMATION
+            `${RENDER_TYPES.CANVAS}`,
+            `${RENDER_TYPES.MESH}`,
+            `${RENDER_TYPES.SCENE}`,
+            `${RENDER_TYPES.TRANSFORMATION}`
         ]
         
         // render all nodes when needed
