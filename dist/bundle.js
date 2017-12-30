@@ -120,6 +120,14 @@ var Viewer = /** @class */ (function () {
         return this._sceneManager.addCube(parentNodeId);
     };
     /**
+     * Adds a simple cylinder mesh to the scene.
+     * @param {string} parentNodeId
+     * @returns {MeshNode}
+     */
+    Viewer.prototype.addCylinder = function (parentNodeId) {
+        return this._sceneManager.addCylinder(parentNodeId);
+    };
+    /**
      * Remove a mesh node from the scene.
      * @param {string} nodeId
      */
@@ -804,6 +812,15 @@ var SceneManager = /** @class */ (function () {
     SceneManager.prototype.addCube = function (parentNodeId) {
         var cube = SimpleMeshFactory_1.SimpleMeshFactory.createCube();
         return this.addMesh(cube, parentNodeId);
+    };
+    /**
+     * Add a simple cylinder mesh.
+     * @param {string} parentNodeId
+     * @returns {MeshNode}
+     */
+    SceneManager.prototype.addCylinder = function (parentNodeId) {
+        var cylinder = SimpleMeshFactory_1.SimpleMeshFactory.createCylinder();
+        return this.addMesh(cylinder, parentNodeId);
     };
     /**
      * Remove a mesh node from the scene and all other relations.
@@ -1563,6 +1580,15 @@ var SimpleMeshFactory = /** @class */ (function () {
      */
     SimpleMeshFactory.createCube = function () {
         var geometry = new THREE.BoxGeometry(10, 10, 10);
+        return new MeshNode_1.MeshNode(geometry);
+    };
+    /**
+     * Create a 10x10 cylinder.
+     * @returns {MeshNode}
+     */
+    SimpleMeshFactory.createCylinder = function () {
+        var geometry = new THREE.CylinderGeometry(10, 10, 10, 24);
+        geometry.rotateX(Math.PI);
         return new MeshNode_1.MeshNode(geometry);
     };
     return SimpleMeshFactory;

@@ -152,6 +152,15 @@ export class Viewer {
     }
 
     /**
+     * Adds a simple cylinder mesh to the scene.
+     * @param {string} parentNodeId
+     * @returns {MeshNode}
+     */
+    public addCylinder (parentNodeId?: string): MeshNode {
+        return this._sceneManager.addCylinder(parentNodeId)
+    }
+
+    /**
      * Remove a mesh node from the scene.
      * @param {string} nodeId
      */

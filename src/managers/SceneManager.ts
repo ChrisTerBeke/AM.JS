@@ -134,6 +134,16 @@ export class SceneManager {
     }
 
     /**
+     * Add a simple cylinder mesh.
+     * @param {string} parentNodeId
+     * @returns {MeshNode}
+     */
+    public addCylinder (parentNodeId?: string) {
+        const cylinder = SimpleMeshFactory.createCylinder()
+        return this.addMesh(cylinder, parentNodeId)
+    }
+
+    /**
      * Remove a mesh node from the scene and all other relations.
      * @param {string} nodeId
      */
