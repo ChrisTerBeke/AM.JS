@@ -16,7 +16,7 @@
     "watch-js": "./node_modules/.bin/watchify build/index.js -o dist/bundle.js",
     "watch-typescript": "./node_modules/.bin/tsc --watch",
     "clean": "rm -rf build & rm -rf dist",
-    "docs": "./node_modules/.bin/typedoc --out ./docs ./src"
+    "docs": "touch ./docs/.nojekyll && ./node_modules/.bin/typedoc --out ./docs ./src"
   },
   "devDependencies": {
     "browserify": "^14.5.0",
