@@ -8,6 +8,9 @@ var CameraManager_1 = require("./managers/CameraManager");
 var RenderManager_1 = require("./managers/RenderManager");
 var AnimationManager_1 = require("./managers/AnimationManager");
 var BuildVolumeManager_1 = require("./managers/BuildVolumeManager");
+// exporters
+var GeometryExporter_1 = require("./exporters/GeometryExporter");
+var BinarySTLExporter_1 = require("./exporters/BinarySTLExporter");
 /**
  * The Viewer class holds one complete instance of the 3D viewer.
  * It has one instance for each manager, a list of signals and the public API.
@@ -22,6 +25,9 @@ var Viewer = /** @class */ (function () {
         this.cameraCreated = new Signal_1.Signal();
         this.nodeSelected = new Signal_1.Signal();
         this.nodeDeselected = new Signal_1.Signal();
+        this.buildVolumeChanged = new Signal_1.Signal();
+        // other public properties
+        this.CONTROL_MODES = SceneManager_1.CONTROL_MODES;
     }
     /**
      * Initialize the viewer on a target canvas element.
@@ -60,7 +66,7 @@ var Viewer = /** @class */ (function () {
         this.onRender.emit({
             force: true,
             source: Viewer.name,
-            type: RenderManager_1.RENDER_TYPES.CANVAS
+            type: "" + RenderManager_1.RENDER_TYPES.CANVAS
         });
     };
     /**
@@ -114,6 +120,14 @@ var Viewer = /** @class */ (function () {
         return this._sceneManager.addCube(parentNodeId);
     };
     /**
+     * Adds a simple cylinder mesh to the scene.
+     * @param {string} parentNodeId
+     * @returns {MeshNode}
+     */
+    Viewer.prototype.addCylinder = function (parentNodeId) {
+        return this._sceneManager.addCylinder(parentNodeId);
+    };
+    /**
      * Remove a mesh node from the scene.
      * @param {string} nodeId
      */
@@ -127,11 +141,246 @@ var Viewer = /** @class */ (function () {
     Viewer.prototype.getBuildVolumeBoundingBox = function () {
         return this._buildVolumeManager.getBuildVolume().getBoundingBox();
     };
+    /**
+     * Set the build volume size in mm.
+     * @param {number} width
+     * @param {number} depth
+     * @param {number} height
+     */
+    Viewer.prototype.setBuildVolumeSize = function (width, depth, height) {
+        this._buildVolumeManager.setBuildVolumeSize(width, depth, height);
+    };
+    /**
+     * Set the control mode for mesh transformations.
+     * @param {CONTROL_MODES} controlMode
+     */
+    Viewer.prototype.setControlMode = function (controlMode) {
+        this._sceneManager.setControlMode(controlMode);
+    };
+    /**
+     * Set the snap distance for mesh transformations.
+     * @param {number} distance
+     */
+    Viewer.prototype.setControlSnapDistance = function (distance) {
+        this._sceneManager.setControlSnapDistance(distance);
+    };
+    /**
+     * Get a new instance of the geometry exporter.
+     * @param options
+     * @returns {GeometryExporter}
+     */
+    Viewer.prototype.getGeometryExporter = function (options) {
+        return new GeometryExporter_1.GeometryExporter(this, options);
+    };
+    /**
+     * Get a new instance of the binary STL exporter.
+     * @param options
+     * @returns {BinarySTLExporter}
+     */
+    Viewer.prototype.getBinarySTLExporter = function (options) {
+        return new BinarySTLExporter_1.BinarySTLExporter(this, options);
+    };
     return Viewer;
 }());
 exports.Viewer = Viewer;
 
-},{"./managers/AnimationManager":3,"./managers/BuildVolumeManager":4,"./managers/CameraManager":5,"./managers/RenderManager":6,"./managers/SceneManager":7,"./utils/Signal":14}],2:[function(require,module,exports){
+},{"./exporters/BinarySTLExporter":2,"./exporters/GeometryExporter":4,"./managers/AnimationManager":6,"./managers/BuildVolumeManager":7,"./managers/CameraManager":8,"./managers/RenderManager":9,"./managers/SceneManager":10,"./utils/Signal":20}],2:[function(require,module,exports){
+'use strict';
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+var Exporter_1 = require("./Exporter");
+var THREE = require("three");
+var NodeInterface_1 = require("../nodes/NodeInterface");
+var STL_HEADER_OFFSET = 80;
+/**
+ * The binary STL exporter converts the mesh nodes into a binary STL file.
+ * The file is then presented as downloadable blob.
+ */
+var BinarySTLExporter = /** @class */ (function (_super) {
+    __extends(BinarySTLExporter, _super);
+    function BinarySTLExporter() {
+        return _super !== null && _super.apply(this, arguments) || this;
+    }
+    BinarySTLExporter.prototype._parse = function () {
+        var objects = [];
+        var triangles = 0;
+        var fileHeader = 'Created with AM.JS, a browser based 3D viewer.'; // everything after 80 characters will be ignored
+        // TODO: select a root node to start parsing from
+        var rootSceneNode = this._viewer.getSceneNode();
+        // find all mesh nodes
+        rootSceneNode.traverse(function (node) {
+            // only export mesh nodes
+            if (node.type !== NodeInterface_1.NODE_TYPES.MESH) {
+                return;
+            }
+            // clone the geometry before doing any transformations
+            var newGeometry = node.geometry.clone();
+            // parse a buffer geometry to a normal geometry if needed
+            if (newGeometry instanceof THREE.BufferGeometry) {
+                newGeometry = new THREE.Geometry().fromBufferGeometry(newGeometry);
+            }
+            // keep track of the total amount of triangles (used for buffer size allocation)
+            triangles += newGeometry.faces.length;
+            // store the object for parsing later
+            objects.push({
+                matrixWorld: node.matrixWorld,
+                vertices: newGeometry.vertices,
+                faces: newGeometry.faces
+            });
+        });
+        // compute the buffer length, 96 bytes are needed to store 1 triangle
+        var bufferLength = (triangles * 96) + STL_HEADER_OFFSET + 4;
+        var arrayBuffer = new ArrayBuffer(bufferLength);
+        var output = new DataView(arrayBuffer);
+        // convert the header text into int8 characters
+        for (var i = 0; i < STL_HEADER_OFFSET; i++) {
+            output.setUint8(i, fileHeader.charCodeAt(i));
+        }
+        // start the offset with header size
+        var offset = STL_HEADER_OFFSET;
+        output.setUint32(offset, triangles, true);
+        offset += 4;
+        // we loop again, this time getting the actual mesh data
+        for (var _i = 0, objects_1 = objects; _i < objects_1.length; _i++) {
+            var node = objects_1[_i];
+            var matrixWorld = node.matrixWorld;
+            var vertices = node.vertices;
+            var faces = node.faces;
+            var normalMatrixWorld = new THREE.Matrix3();
+            normalMatrixWorld.getNormalMatrix(matrixWorld);
+            for (var _a = 0, faces_1 = faces; _a < faces_1.length; _a++) {
+                var face = faces_1[_a];
+                // get the normalized vector for each face
+                var vector = new THREE.Vector3();
+                vector.copy(face.normal).applyMatrix3(normalMatrixWorld).normalize();
+                // write face normals to output buffer
+                output.setFloat32(offset, vector.x, true);
+                offset += 4;
+                output.setFloat32(offset, vector.y, true);
+                offset += 4;
+                output.setFloat32(offset, vector.z, true);
+                offset += 4;
+                // get the triangle corners as indices
+                var indices = [face.a, face.b, face.c];
+                for (var j = 0; j < indices.length; j++) {
+                    // get world vector for each point in the triangle
+                    vector.copy(vertices[indices[j]]).applyMatrix4(matrixWorld);
+                    // write triangle corners to output buffer
+                    output.setFloat32(offset, vector.x, true);
+                    offset += 4;
+                    output.setFloat32(offset, vector.y, true);
+                    offset += 4;
+                    output.setFloat32(offset, vector.z, true);
+                    offset += 4;
+                }
+                // fill byte
+                output.setUint16(offset, 0, true);
+                offset += 2;
+            }
+        }
+        // set the export output
+        this._parsedData = output;
+    };
+    return BinarySTLExporter;
+}(Exporter_1.Exporter));
+exports.BinarySTLExporter = BinarySTLExporter;
+
+},{"../nodes/NodeInterface":16,"./Exporter":3,"three":21}],3:[function(require,module,exports){
+'use strict';
+Object.defineProperty(exports, "__esModule", { value: true });
+/**
+ * The base exporter class is an abstract class to base specific exporters on.
+ * Each exporter should at least implement a _parse method.
+ */
+var Exporter = /** @class */ (function () {
+    function Exporter(viewer, options) {
+        if (options === void 0) { options = {}; }
+        this._viewer = viewer;
+        this._options = options;
+    }
+    /**
+     * Run the parser and return the parsed data.
+     * @returns {any}
+     */
+    Exporter.prototype.export = function () {
+        this._parse();
+        return this._parsedData;
+    };
+    Exporter.prototype._parse = function () {
+        console.warn('Each exporter should implement _parse');
+    };
+    return Exporter;
+}());
+exports.Exporter = Exporter;
+
+},{}],4:[function(require,module,exports){
+'use strict';
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+var THREE = require("three");
+var Exporter_1 = require("./Exporter");
+var NodeInterface_1 = require("../nodes/NodeInterface");
+/**
+ * The geometry exporter exports all faces and vertices as plain arrays.
+ * Useful for fast exporting and direct parsing into other 3D software.
+ */
+var GeometryExporter = /** @class */ (function (_super) {
+    __extends(GeometryExporter, _super);
+    function GeometryExporter() {
+        return _super !== null && _super.apply(this, arguments) || this;
+    }
+    GeometryExporter.prototype._parse = function () {
+        var geometries = [];
+        // TODO: select a root node to start parsing from
+        var rootSceneNode = this._viewer.getSceneNode();
+        // find all mesh nodes
+        rootSceneNode.traverse(function (node) {
+            // only export mesh nodes
+            if (node.type !== NodeInterface_1.NODE_TYPES.MESH) {
+                return;
+            }
+            // clone the geometry before doing any transformations
+            var newGeometry = node.geometry.clone();
+            // parse a buffer geometry to a normal geometry if needed
+            if (newGeometry instanceof THREE.BufferGeometry) {
+                newGeometry = new THREE.Geometry().fromBufferGeometry(newGeometry);
+            }
+            // transform the geometry to the parent node's world matrix
+            var transformation = new THREE.Matrix4().makeRotationX(Math.PI / 2);
+            newGeometry.applyMatrix(node.matrixWorld);
+            newGeometry.applyMatrix(transformation);
+            // store the faces (indices) and vertices
+            geometries.push({
+                faces: newGeometry.faces,
+                vertices: newGeometry.vertices
+            });
+        });
+        // set the export output
+        this._parsedData = geometries;
+    };
+    return GeometryExporter;
+}(Exporter_1.Exporter));
+exports.GeometryExporter = GeometryExporter;
+
+},{"../nodes/NodeInterface":16,"./Exporter":3,"three":21}],5:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -141,7 +390,7 @@ window['THREE'] = THREE;
 // make sure Viewer is available in browser context
 window['Viewer'] = Viewer_1.Viewer;
 
-},{"./Viewer":1,"three":15}],3:[function(require,module,exports){
+},{"./Viewer":1,"three":21}],6:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var AnimationManager = /** @class */ (function () {
@@ -163,10 +412,12 @@ var AnimationManager = /** @class */ (function () {
 }());
 exports.AnimationManager = AnimationManager;
 
-},{}],4:[function(require,module,exports){
+},{}],7:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var CartesianBuildVolume_1 = require("../nodes/CartesianBuildVolume");
+var CartesianBuildPlate_1 = require("../nodes/CartesianBuildPlate");
+var RenderManager_1 = require("./RenderManager");
 /**
  * The build volume manager handles everything related to the 3D printer build volume.
  * It shows the print bed, volume outline and simulated print head.
@@ -174,8 +425,12 @@ var CartesianBuildVolume_1 = require("../nodes/CartesianBuildVolume");
 var BuildVolumeManager = /** @class */ (function () {
     function BuildVolumeManager(viewer) {
         this._viewer = viewer;
-        this._buildVolume = new CartesianBuildVolume_1.CartesianBuildVolume(200, 200, 200);
-        this._viewer.getSceneNode().addChild(this._buildVolume);
+        // set size (hardcoded for now)
+        this.setBuildVolumeSize(200, 200, 200);
+        // create the virtual volume and build plate mesh
+        this._createBuildVolume();
+        this._createBuildPlate();
+        this._showDisallowedAreas();
     }
     BuildVolumeManager.getInstance = function (viewer) {
         // create instance if not yet existing
@@ -187,11 +442,43 @@ var BuildVolumeManager = /** @class */ (function () {
     BuildVolumeManager.prototype.getBuildVolume = function () {
         return this._buildVolume;
     };
+    BuildVolumeManager.prototype.getBuildPlate = function () {
+        return this._buildPlate;
+    };
+    BuildVolumeManager.prototype.setBuildVolumeSize = function (width, depth, height) {
+        this._width = width;
+        this._depth = depth;
+        this._height = height;
+        // adjust the build volume if needed
+        if (this._buildVolume) {
+            this._buildVolume.setSize(width, depth, height);
+            this._viewer.buildVolumeChanged.emit(this._buildVolume.getBoundingBox());
+        }
+        // adjust the build plate if needed
+        if (this._buildPlate) {
+            this._buildPlate.setSize(width, depth);
+        }
+        this._viewer.onRender.emit({
+            source: BuildVolumeManager.name,
+            type: RenderManager_1.RENDER_TYPES.SCENE
+        });
+    };
+    BuildVolumeManager.prototype._createBuildVolume = function () {
+        this._buildVolume = new CartesianBuildVolume_1.CartesianBuildVolume(this._width, this._depth, this._height);
+        this._viewer.getSceneNode().addChild(this._buildVolume);
+    };
+    BuildVolumeManager.prototype._createBuildPlate = function () {
+        this._buildPlate = new CartesianBuildPlate_1.CartesianBuildPlate(this._width, this._depth);
+        this._viewer.getSceneNode().addChild(this._buildPlate);
+    };
+    BuildVolumeManager.prototype._showDisallowedAreas = function () {
+        // TODO
+    };
     return BuildVolumeManager;
 }());
 exports.BuildVolumeManager = BuildVolumeManager;
 
-},{"../nodes/CartesianBuildVolume":9}],5:[function(require,module,exports){
+},{"../nodes/CartesianBuildPlate":13,"../nodes/CartesianBuildVolume":14,"./RenderManager":9}],8:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -208,19 +495,17 @@ var CAMERA_TYPES;
  */
 var CameraManager = /** @class */ (function () {
     function CameraManager(viewerInstance) {
-        var _this = this;
+        this._focusOnBuildVolumeCenter = true;
         this._viewer = viewerInstance;
         this._canvas = this._viewer.getCanvas();
         // initialize the default camera
         this.setCameraType(CAMERA_TYPES.PERSPECTIVE);
         // disable the camera controls while transforming
-        this._viewer.transformStarted.connect(function () {
-            _this.enableCameraControls(false);
-        });
+        this._viewer.transformStarted.connect(this.enableCameraControls.bind(this, false));
         // enable the camera controls when done transforming
-        this._viewer.transformEnded.connect(function () {
-            _this.enableCameraControls();
-        });
+        this._viewer.transformEnded.connect(this.enableCameraControls.bind(this, true));
+        // update the camera target when the build volume changes
+        this._viewer.buildVolumeChanged.connect(this._buildVolumeChanged.bind(this));
     }
     CameraManager.getInstance = function (viewerInstance) {
         // create instance if not yet existing
@@ -250,15 +535,12 @@ var CameraManager = /** @class */ (function () {
         }
         else {
             console.error("Camera type " + type + " is not a valid camera type.");
+            return;
         }
         // set the correct 'up' direction to the z axis
         this._camera.up.set(0, 0, 1);
-        // reset position and target to center of build volume
-        var buildVolume = this._viewer.getBuildVolumeBoundingBox();
-        // zoom the camera our far enough to see the build volume
-        this.setCameraPosition(new THREE.Vector3(buildVolume.max.x * 2, buildVolume.max.y * 2, buildVolume.max.z * 2));
-        // focus the camera and controls on the center of the build volume surface
-        this.setCameraTarget(new THREE.Vector3((buildVolume.max.x - buildVolume.min.x) / 2, (buildVolume.max.y - buildVolume.min.y) / 2, buildVolume.min.z));
+        // target at build volume center
+        this._setTargetAtBuildVolume();
         // trigger camera bindings
         this._viewer.cameraCreated.emit(this._camera);
         // trigger a render update
@@ -294,6 +576,30 @@ var CameraManager = /** @class */ (function () {
             source: CameraManager.name,
             type: RenderManager_1.RENDER_TYPES.CAMERA
         });
+    };
+    /**
+     * Update the camera target after the build volume changed.
+     * @param {Box3} buildVolumeBoundingBox
+     * @private
+     */
+    CameraManager.prototype._buildVolumeChanged = function (buildVolumeBoundingBox) {
+        // do nothing if we shouldn't focus on the center of the build plate
+        if (!this._focusOnBuildVolumeCenter) {
+            return;
+        }
+        this._setTargetAtBuildVolume(buildVolumeBoundingBox);
+    };
+    /**
+     * Helper function to set the camera target at the center of the build volume.
+     * @private
+     */
+    CameraManager.prototype._setTargetAtBuildVolume = function (buildVolumeBoundingBox) {
+        // get the correct bounding box
+        var buildVolume = buildVolumeBoundingBox || this._viewer.getBuildVolumeBoundingBox();
+        // zoom the camera our far enough to see the build volume
+        this.setCameraPosition(new THREE.Vector3(buildVolume.max.x * 2, buildVolume.max.y * 2, buildVolume.max.z * 2));
+        // focus the camera and controls on the center of the build volume surface
+        this.setCameraTarget(new THREE.Vector3((buildVolume.max.x - buildVolume.min.x) / 2, (buildVolume.max.y - buildVolume.min.y) / 2, buildVolume.min.z));
     };
     /**
      * Update the camera controls after a new camera was created.
@@ -336,7 +642,7 @@ var CameraManager = /** @class */ (function () {
 }());
 exports.CameraManager = CameraManager;
 
-},{"./RenderManager":6,"three":15,"three/examples/js/controls/OrbitControls.js":16}],6:[function(require,module,exports){
+},{"./RenderManager":9,"three":21,"three/examples/js/controls/OrbitControls.js":22}],9:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -384,17 +690,17 @@ var RenderManager = /** @class */ (function () {
     RenderManager.prototype.render = function () {
         this._render({
             source: RenderManager.name,
-            type: RENDER_TYPES.SCENE,
+            type: "" + RENDER_TYPES.SCENE,
             force: false
         });
     };
     RenderManager.prototype._render = function (renderOptions) {
         // these render types should trigger a re-render of scene nodes
         var NODE_RENDER_TYPES = [
-            RENDER_TYPES.CANVAS,
-            RENDER_TYPES.MESH,
-            RENDER_TYPES.SCENE,
-            RENDER_TYPES.TRANSFORMATION
+            "" + RENDER_TYPES.CANVAS,
+            "" + RENDER_TYPES.MESH,
+            "" + RENDER_TYPES.SCENE,
+            "" + RENDER_TYPES.TRANSFORMATION
         ];
         // render all nodes when needed
         if (renderOptions.force || NODE_RENDER_TYPES.indexOf(renderOptions.type) > -1) {
@@ -413,7 +719,7 @@ var RenderManager = /** @class */ (function () {
 }());
 exports.RenderManager = RenderManager;
 
-},{"three":15}],7:[function(require,module,exports){
+},{"three":21}],10:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -423,6 +729,12 @@ var NodeInterface_1 = require("../nodes/NodeInterface");
 var SceneNode_1 = require("../nodes/SceneNode");
 var SimpleMeshFactory_1 = require("../nodes/SimpleMeshFactory");
 var RenderManager_1 = require("./RenderManager");
+var CONTROL_MODES;
+(function (CONTROL_MODES) {
+    CONTROL_MODES["TRANSLATE"] = "translate";
+    CONTROL_MODES["ROTATE"] = "rotate";
+    CONTROL_MODES["SCALE"] = "scale";
+})(CONTROL_MODES = exports.CONTROL_MODES || (exports.CONTROL_MODES = {}));
 var SceneManager = /** @class */ (function () {
     function SceneManager(viewer) {
         var _this = this;
@@ -430,6 +742,8 @@ var SceneManager = /** @class */ (function () {
         this._canvas = this._viewer.getCanvas();
         // create the root scene node
         this._sceneRootNode = new SceneNode_1.SceneNode();
+        this._sceneRootNode.nodeAdded.connect(this._onSceneChanged.bind(this));
+        this._sceneRootNode.nodeRemoved.connect(this._onSceneChanged.bind(this));
         // setup the raycaster helper
         this._raycaster = new THREE.Raycaster();
         // add lighting
@@ -486,7 +800,7 @@ var SceneManager = /** @class */ (function () {
             this._sceneRootNode.addChild(meshNode);
         }
         this._viewer.onRender.emit({
-            type: RenderManager_1.RENDER_TYPES.MESH,
+            type: "" + RenderManager_1.RENDER_TYPES.MESH,
             source: SceneManager.name
         });
         return meshNode;
@@ -500,27 +814,33 @@ var SceneManager = /** @class */ (function () {
         return this.addMesh(cube, parentNodeId);
     };
     /**
+     * Add a simple cylinder mesh.
+     * @param {string} parentNodeId
+     * @returns {MeshNode}
+     */
+    SceneManager.prototype.addCylinder = function (parentNodeId) {
+        var cylinder = SimpleMeshFactory_1.SimpleMeshFactory.createCylinder();
+        return this.addMesh(cylinder, parentNodeId);
+    };
+    /**
      * Remove a mesh node from the scene and all other relations.
      * @param {string} nodeId
      */
     SceneManager.prototype.removeMeshNode = function (nodeId) {
         // find the meshNode by ID
         var meshNode = this._findNodeById(this._sceneRootNode, nodeId);
+        // disconnect the signal
+        meshNode.onPropertyChanged.disconnect(this._onMeshNodePropertyChanged);
         // unload the geometry
         meshNode.geometry.dispose();
         // remove the actual mesh from the scene
         this._sceneRootNode.getScene().remove(meshNode);
-        // disconnect the signal
-        meshNode.onPropertyChanged.disconnect(this._onMeshNodePropertyChanged);
-        // make sure the mesh node is not hanging around in memory anymore
-        meshNode = undefined;
     };
     /**
      * Add a camera to the scene.
      * @param {Camera} camera
      */
     SceneManager.prototype.addCamera = function (camera) {
-        // TODO: move to scene node
         this._sceneRootNode.getScene().add(camera);
     };
     /**
@@ -531,13 +851,44 @@ var SceneManager = /** @class */ (function () {
         this._sceneRootNode.getScene().add(light);
     };
     /**
+     * Set the control mode for transformations.
+     * @param {CONTROL_MODES} controlMode
+     */
+    SceneManager.prototype.setControlMode = function (controlMode) {
+        this._controls.setMode("" + controlMode);
+        // set the correct space to give the best user experience
+        if (controlMode == CONTROL_MODES.SCALE) {
+            this._controls.setSpace('local');
+        }
+        else {
+            this._controls.setSpace('world');
+        }
+    };
+    /**
+     * Set the snapping distance for transformations.
+     * @param {number} distance
+     */
+    SceneManager.prototype.setControlSnapDistance = function (distance) {
+        this._controls.setSnap(distance);
+    };
+    /**
+     * Handle scene changes.
+     * @private
+     */
+    SceneManager.prototype._onSceneChanged = function () {
+        this._viewer.onRender.emit({
+            type: "" + RenderManager_1.RENDER_TYPES.SCENE,
+            source: "sceneNode_" + this._sceneRootNode.getId()
+        });
+    };
+    /**
      * Handle property changes from any of the meshNodes in the scene tree.
      * @param propertyChangedData
      * @private
      */
     SceneManager.prototype._onMeshNodePropertyChanged = function (propertyChangedData) {
         this._viewer.onRender.emit({
-            type: RenderManager_1.RENDER_TYPES.MESH,
+            type: "" + RenderManager_1.RENDER_TYPES.MESH,
             source: "meshNode_" + propertyChangedData.nodeId
         });
     };
@@ -612,22 +963,22 @@ var SceneManager = /** @class */ (function () {
         var _this = this;
         this._controls = new THREE.TransformControls(this._camera, this._canvas);
         // disable the camera controls while transforming
-        this._controls.addEventListener('mouseDown', function (event) {
+        this._controls.addEventListener('mouseDown', function () {
             _this._viewer.transformStarted.emit();
         });
         // enable the camera controls when done transforming
-        this._controls.addEventListener('mouseUp', function (event) {
+        this._controls.addEventListener('mouseUp', function () {
             _this._viewer.transformEnded.emit();
         });
         // re-render when transforming an object
-        this._controls.addEventListener('change', function (event) {
+        this._controls.addEventListener('change', function () {
             _this._viewer.onRender.emit({
                 source: SceneManager.name,
-                type: RenderManager_1.RENDER_TYPES.TRANSFORMATION
+                type: "" + RenderManager_1.RENDER_TYPES.TRANSFORMATION
             });
         });
         // update the controls when rendering (scaling)
-        this._viewer.onRender.connect(function (renderOptions) {
+        this._viewer.onRender.connect(function () {
             _this._controls.update();
         });
         // add the controls to the scene so they can be interacted with
@@ -704,7 +1055,7 @@ var SceneManager = /** @class */ (function () {
         // render so selected model can be highlighted
         this._viewer.onRender.emit({
             source: SceneManager.name,
-            type: RenderManager_1.RENDER_TYPES.SCENE
+            type: "" + RenderManager_1.RENDER_TYPES.SCENE
         });
     };
     /**
@@ -733,8 +1084,6 @@ var SceneManager = /** @class */ (function () {
         if (node.type !== NodeInterface_1.NODE_TYPES.MESH) {
             return;
         }
-        // TODO: set mode dynamically
-        this._controls.setMode('translate');
         // attach the controls to the target node
         this._controls.attach(node);
     };
@@ -742,7 +1091,80 @@ var SceneManager = /** @class */ (function () {
 }());
 exports.SceneManager = SceneManager;
 
-},{"../nodes/NodeInterface":11,"../nodes/SceneNode":12,"../nodes/SimpleMeshFactory":13,"./RenderManager":6,"three":15,"three/examples/js/controls/TransformControls.js":17}],8:[function(require,module,exports){
+},{"../nodes/NodeInterface":16,"../nodes/SceneNode":17,"../nodes/SimpleMeshFactory":18,"./RenderManager":9,"three":21,"three/examples/js/controls/TransformControls.js":23}],11:[function(require,module,exports){
+'use strict';
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+var THREE = require("three");
+var NodeInterface_1 = require("./NodeInterface");
+var BuildPlate = /** @class */ (function (_super) {
+    __extends(BuildPlate, _super);
+    function BuildPlate(width, depth) {
+        var _this = _super.call(this) || this;
+        // set size
+        _this._width = width;
+        _this._depth = depth;
+        _this._height = 1;
+        // override type
+        _this.type = NodeInterface_1.NODE_TYPES.BUILD_PLATE;
+        // defaults
+        _this.castShadow = false;
+        _this.receiveShadow = true;
+        _this._createGeometry();
+        _this.geometry.computeBoundingBox();
+        _this._createMaterial();
+        return _this;
+    }
+    BuildPlate.prototype.getId = function () {
+        return this.uuid;
+    };
+    BuildPlate.prototype.getType = function () {
+        return this.type;
+    };
+    BuildPlate.prototype.getParent = function () {
+        return null;
+    };
+    BuildPlate.prototype.getChildren = function () {
+        return [];
+    };
+    BuildPlate.prototype.addChild = function (childNode) {
+        return;
+    };
+    BuildPlate.prototype.removeChild = function (childNode) {
+        return;
+    };
+    BuildPlate.prototype.render = function (renderOptions) {
+        return;
+    };
+    BuildPlate.prototype.setSize = function (width, depth) {
+        this._width = width;
+        this._depth = depth;
+        this._resize();
+    };
+    BuildPlate.prototype._resize = function () {
+        this.position.set(this._width / 2, this._depth / 2, -this._height / 2);
+        this.scale.set(this._width, this._depth, this._height);
+    };
+    BuildPlate.prototype._createGeometry = function () {
+        console.warn('Geometry should be implemented in BuildPlate sub types');
+    };
+    BuildPlate.prototype._createMaterial = function () {
+        console.warn('Material should be implemented in BuildPlate sub types');
+    };
+    return BuildPlate;
+}(THREE.Mesh));
+exports.BuildPlate = BuildPlate;
+
+},{"./NodeInterface":16,"three":21}],12:[function(require,module,exports){
 'use strict';
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
@@ -761,15 +1183,26 @@ var BuildVolume = /** @class */ (function (_super) {
     __extends(BuildVolume, _super);
     function BuildVolume(width, depth, height) {
         var _this = _super.call(this) || this;
+        // set size
+        _this._width = width;
+        _this._depth = depth;
+        _this._height = height;
         // override type
         _this.type = NodeInterface_1.NODE_TYPES.BUILD_VOLUME;
-        _this._createGeometry(width, depth, height);
+        // defaults
+        _this.castShadow = false;
+        _this.receiveShadow = false;
+        _this._createGeometry();
         _this.geometry.computeBoundingBox();
         _this._createMaterial();
+        // axis helper
+        var zeroPoint = new THREE.AxisHelper(5);
+        zeroPoint.position.set(0, 0, 0);
+        _this.children.push(zeroPoint);
         return _this;
     }
     BuildVolume.prototype.getId = function () {
-        return undefined;
+        return this.uuid;
     };
     BuildVolume.prototype.getType = function () {
         return this.type;
@@ -789,16 +1222,26 @@ var BuildVolume = /** @class */ (function (_super) {
     BuildVolume.prototype.render = function (renderOptions) {
         return;
     };
+    BuildVolume.prototype.setSize = function (width, depth, height) {
+        this._width = width;
+        this._depth = depth;
+        this._height = height;
+        this._resize();
+    };
     /**
      * Get the min and max values for the bounding box.
      * @returns {Box3}
      */
     BuildVolume.prototype.getBoundingBox = function () {
         this.geometry.computeBoundingBox();
-        return this.geometry.boundingBox;
+        return new THREE.Box3(this.geometry.boundingBox.min.multiply(this.scale).add(this.position), this.geometry.boundingBox.max.multiply(this.scale).add(this.position));
     };
-    BuildVolume.prototype._createGeometry = function (width, depth, height) {
-        console.warn('Geometry should be implemented in BuildVolume sub types');
+    BuildVolume.prototype._resize = function () {
+        this.position.set(this._width / 2, this._depth / 2, this._height / 2);
+        this.scale.set(this._width, this._depth, this._height);
+    };
+    BuildVolume.prototype._createGeometry = function () {
+        console.warn('_createGeometry not implemented');
     };
     BuildVolume.prototype._createMaterial = function () {
         this.material = new THREE.MeshBasicMaterial({
@@ -812,7 +1255,42 @@ var BuildVolume = /** @class */ (function (_super) {
 }(THREE.Mesh));
 exports.BuildVolume = BuildVolume;
 
-},{"./NodeInterface":11,"three":15}],9:[function(require,module,exports){
+},{"./NodeInterface":16,"three":21}],13:[function(require,module,exports){
+'use strict';
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+var THREE = require("three");
+var BuildPlate_1 = require("./BuildPlate");
+var CartesianBuildPlateGridTexture_1 = require("../resources/textures/CartesianBuildPlateGridTexture");
+var CartesianBuildPlate = /** @class */ (function (_super) {
+    __extends(CartesianBuildPlate, _super);
+    function CartesianBuildPlate() {
+        return _super !== null && _super.apply(this, arguments) || this;
+    }
+    CartesianBuildPlate.prototype._createGeometry = function () {
+        this.geometry = new THREE.BoxGeometry(1, 1, 1);
+        this._resize();
+    };
+    CartesianBuildPlate.prototype._createMaterial = function () {
+        this.material = new THREE.MeshBasicMaterial({
+            color: new THREE.Color(.8, .8, .8),
+            map: new THREE.TextureLoader().load(CartesianBuildPlateGridTexture_1.default)
+        });
+    };
+    return CartesianBuildPlate;
+}(BuildPlate_1.BuildPlate));
+exports.CartesianBuildPlate = CartesianBuildPlate;
+
+},{"../resources/textures/CartesianBuildPlateGridTexture":19,"./BuildPlate":11,"three":21}],14:[function(require,module,exports){
 'use strict';
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
@@ -832,15 +1310,15 @@ var CartesianBuildVolume = /** @class */ (function (_super) {
     function CartesianBuildVolume(width, depth, height) {
         return _super.call(this, width, depth, height) || this;
     }
-    CartesianBuildVolume.prototype._createGeometry = function (width, depth, height) {
-        this.geometry = new THREE.BoxGeometry(width, depth, height);
-        this.geometry.translate(width / 2, depth / 2, height / 2);
+    CartesianBuildVolume.prototype._createGeometry = function () {
+        this.geometry = new THREE.BoxGeometry(1, 1, 1);
+        this._resize();
     };
     return CartesianBuildVolume;
 }(BuildVolume_1.BuildVolume));
 exports.CartesianBuildVolume = CartesianBuildVolume;
 
-},{"./BuildVolume":8,"three":15}],10:[function(require,module,exports){
+},{"./BuildVolume":12,"three":21}],15:[function(require,module,exports){
 'use strict';
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
@@ -959,8 +1437,9 @@ var MeshNode = /** @class */ (function (_super) {
         // render children if existing
         for (var _i = 0, _a = this.getChildren(); _i < _a.length; _i++) {
             var child = _a[_i];
-            if (child.render) {
-                child.render(renderOptions);
+            if (child.type === NodeInterface_1.NODE_TYPES.MESH) {
+                var node = child;
+                node.render(renderOptions);
             }
         }
     };
@@ -997,7 +1476,7 @@ var MeshNode = /** @class */ (function (_super) {
 }(THREE.Mesh));
 exports.MeshNode = MeshNode;
 
-},{"../utils/Signal":14,"./NodeInterface":11,"three":15}],11:[function(require,module,exports){
+},{"../utils/Signal":20,"./NodeInterface":16,"three":21}],16:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 /**
@@ -1010,9 +1489,10 @@ var NODE_TYPES;
     NODE_TYPES["MESH"] = "mesh";
     NODE_TYPES["GROUP"] = "group";
     NODE_TYPES["BUILD_VOLUME"] = "buildVolume";
+    NODE_TYPES["BUILD_PLATE"] = "buildPlate";
 })(NODE_TYPES = exports.NODE_TYPES || (exports.NODE_TYPES = {}));
 
-},{}],12:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 'use strict';
 var __extends = (this && this.__extends) || (function () {
     var extendStatics = Object.setPrototypeOf ||
@@ -1027,10 +1507,13 @@ var __extends = (this && this.__extends) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
 var NodeInterface_1 = require("./NodeInterface");
+var Signal_1 = require("../utils/Signal");
 var SceneNode = /** @class */ (function (_super) {
     __extends(SceneNode, _super);
     function SceneNode() {
         var _this = _super.call(this) || this;
+        _this.nodeAdded = new Signal_1.Signal();
+        _this.nodeRemoved = new Signal_1.Signal();
         // override type
         _this.type = NodeInterface_1.NODE_TYPES.SCENE;
         return _this;
@@ -1050,9 +1533,12 @@ var SceneNode = /** @class */ (function (_super) {
     };
     SceneNode.prototype.addChild = function (node) {
         this.add(node);
+        this.nodeAdded.emit(node);
     };
     SceneNode.prototype.removeChild = function (node) {
+        var nodeId = node.uuid;
         this.remove(node);
+        this.nodeRemoved.emit(nodeId);
     };
     SceneNode.prototype.getChildren = function () {
         // @ts-ignore
@@ -1067,8 +1553,9 @@ var SceneNode = /** @class */ (function (_super) {
     SceneNode.prototype.render = function (renderOptions) {
         for (var _i = 0, _a = this.getChildren(); _i < _a.length; _i++) {
             var child = _a[_i];
-            if (child.render) {
-                child.render(renderOptions);
+            if (child.type === NodeInterface_1.NODE_TYPES.MESH) {
+                var node = child;
+                node.render(renderOptions);
             }
         }
     };
@@ -1076,7 +1563,7 @@ var SceneNode = /** @class */ (function (_super) {
 }(THREE.Scene));
 exports.SceneNode = SceneNode;
 
-},{"./NodeInterface":11,"three":15}],13:[function(require,module,exports){
+},{"../utils/Signal":20,"./NodeInterface":16,"three":21}],18:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var THREE = require("three");
@@ -1095,11 +1582,25 @@ var SimpleMeshFactory = /** @class */ (function () {
         var geometry = new THREE.BoxGeometry(10, 10, 10);
         return new MeshNode_1.MeshNode(geometry);
     };
+    /**
+     * Create a 10x10 cylinder.
+     * @returns {MeshNode}
+     */
+    SimpleMeshFactory.createCylinder = function () {
+        var geometry = new THREE.CylinderGeometry(10, 10, 10, 24);
+        geometry.rotateX(Math.PI);
+        return new MeshNode_1.MeshNode(geometry);
+    };
     return SimpleMeshFactory;
 }());
 exports.SimpleMeshFactory = SimpleMeshFactory;
 
-},{"./MeshNode":10,"three":15}],14:[function(require,module,exports){
+},{"./MeshNode":15,"three":21}],19:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = 'data:image/png;base64,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/GMzLdsAAEFpaVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8P3hwYWNrZXQgYmVnaW49Iu+7vyIgaWQ9Ilc1TTBNcENlaGlIenJlU3pOVGN6a2M5ZCI/Pgo8eDp4bXBtZXRhIHhtbG5zOng9ImFkb2JlOm5zOm1ldGEvIiB4OnhtcHRrPSJBZG9iZSBYTVAgQ29yZSA1LjYtYzExMSA3OS4xNTgzMjUsIDIwMTUvMDkvMTAtMDE6MTA6MjAgICAgICAgICI+CiAgIDxyZGY6UkRGIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyI+CiAgICAgIDxyZGY6RGVzY3JpcHRpb24gcmRmOmFib3V0PSIiCiAgICAgICAgICAgIHhtbG5zOnhtcD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLyIKICAgICAgICAgICAgeG1sbnM6ZGM9Imh0dHA6Ly9wdXJsLm9yZy9kYy9lbGVtZW50cy8xLjEvIgogICAgICAgICAgICB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIKICAgICAgICAgICAgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIKICAgICAgICAgICAgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiCiAgICAgICAgICAgIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIKICAgICAgICAgICAgeG1sbnM6dGlmZj0iaHR0cDovL25zLmFkb2JlLmNvbS90aWZmLzEuMC8iCiAgICAgICAgICAgIHhtbG5zOmV4aWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vZXhpZi8xLjAvIj4KICAgICAgICAgPHhtcDpDcmVhdG9yVG9vbD5BZG9iZSBQaG90b3Nob3AgQ0MgMjAxNSAoTWFjaW50b3NoKTwveG1wOkNyZWF0b3JUb29sPgogICAgICAgICA8eG1wOkNyZWF0ZURhdGU+MjAxNi0wMy0zMFQxNzoyMTo1MiswMjowMDwveG1wOkNyZWF0ZURhdGU+CiAgICAgICAgIDx4bXA6TWV0YWRhdGFEYXRlPjIwMTYtMDMtMzFUMTA6MTE6MjUrMDI6MDA8L3htcDpNZXRhZGF0YURhdGU+CiAgICAgICAgIDx4bXA6TW9kaWZ5RGF0ZT4yMDE2LTAzLTMxVDEwOjExOjI1KzAyOjAwPC94bXA6TW9kaWZ5RGF0ZT4KICAgICAgICAgPGRjOmZvcm1hdD5pbWFnZS9wbmc8L2RjOmZvcm1hdD4KICAgICAgICAgPHhtcE1NOkluc3RhbmNlSUQ+eG1wLmlpZDoxYmM3MGM2NC03ZDg4LTQ2NTYtOGQ4ZS0yMDlhOGY3N2JhMWM8L3htcE1NOkluc3RhbmNlSUQ+CiAgICAgICAgIDx4bXBNTTpEb2N1bWVudElEPmFkb2JlOmRvY2lkOnBob3Rvc2hvcDphY2U5YmI4MC0zNzIzLTExNzktOTU0Mi1kMjE3MjE1YmUxYTM8L3htcE1NOkRvY3VtZW50SUQ+CiAgICAgICAgIDx4bXBNTTpPcmlnaW5hbERvY3VtZW50SUQ+eG1wLmRpZDplZjhiZDJlNS0wOTgyLTQ2MmEtYmUyZS02YTYyYmIyMTgyOTA8L3htcE1NOk9yaWdpbmFsRG9jdW1lbnRJRD4KICAgICAgICAgPHhtcE1NOkhpc3Rvcnk+CiAgICAgICAgICAgIDxyZGY6U2VxPgogICAgICAgICAgICAgICA8cmRmOmxpIHJkZjpwYXJzZVR5cGU9IlJlc291cmNlIj4KICAgICAgICAgICAgICAgICAgPHN0RXZ0OmFjdGlvbj5jcmVhdGVkPC9zdEV2dDphY3Rpb24+CiAgICAgICAgICAgICAgICAgIDxzdEV2dDppbnN0YW5jZUlEPnhtcC5paWQ6ZWY4YmQyZTUtMDk4Mi00NjJhLWJlMmUtNmE2MmJiMjE4MjkwPC9zdEV2dDppbnN0YW5jZUlEPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6d2hlbj4yMDE2LTAzLTMwVDE3OjIxOjUyKzAyOjAwPC9zdEV2dDp3aGVuPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6c29mdHdhcmVBZ2VudD5BZG9iZSBQaG90b3Nob3AgQ0MgMjAxNSAoTWFjaW50b3NoKTwvc3RFdnQ6c29mdHdhcmVBZ2VudD4KICAgICAgICAgICAgICAgPC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGkgcmRmOnBhcnNlVHlwZT0iUmVzb3VyY2UiPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6YWN0aW9uPnNhdmVkPC9zdEV2dDphY3Rpb24+CiAgICAgICAgICAgICAgICAgIDxzdEV2dDppbnN0YW5jZUlEPnhtcC5paWQ6ZmQyMDFhZWEtYWZiNS00MWZiLWIyNGMtMWFhZmE5ZjM5OGRhPC9zdEV2dDppbnN0YW5jZUlEPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6d2hlbj4yMDE2LTAzLTMwVDE3OjIyOjM3KzAyOjAwPC9zdEV2dDp3aGVuPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6c29mdHdhcmVBZ2VudD5BZG9iZSBQaG90b3Nob3AgQ0MgMjAxNSAoTWFjaW50b3NoKTwvc3RFdnQ6c29mdHdhcmVBZ2VudD4KICAgICAgICAgICAgICAgICAgPHN0RXZ0OmNoYW5nZWQ+Lzwvc3RFdnQ6Y2hhbmdlZD4KICAgICAgICAgICAgICAgPC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGkgcmRmOnBhcnNlVHlwZT0iUmVzb3VyY2UiPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6YWN0aW9uPnNhdmVkPC9zdEV2dDphY3Rpb24+CiAgICAgICAgICAgICAgICAgIDxzdEV2dDppbnN0YW5jZUlEPnhtcC5paWQ6Y2IyYWFmODQtZjY3Yi00NWRiLTlhOTYtYTkxNjI3NWI0ZjY0PC9zdEV2dDppbnN0YW5jZUlEPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6d2hlbj4yMDE2LTAzLTMxVDEwOjExOjI1KzAyOjAwPC9zdEV2dDp3aGVuPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6c29mdHdhcmVBZ2VudD5BZG9iZSBQaG90b3Nob3AgQ0MgMjAxNSAoTWFjaW50b3NoKTwvc3RFdnQ6c29mdHdhcmVBZ2VudD4KICAgICAgICAgICAgICAgICAgPHN0RXZ0OmNoYW5nZWQ+Lzwvc3RFdnQ6Y2hhbmdlZD4KICAgICAgICAgICAgICAgPC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGkgcmRmOnBhcnNlVHlwZT0iUmVzb3VyY2UiPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6YWN0aW9uPmNvbnZlcnRlZDwvc3RFdnQ6YWN0aW9uPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6cGFyYW1ldGVycz5mcm9tIGFwcGxpY2F0aW9uL3ZuZC5hZG9iZS5waG90b3Nob3AgdG8gaW1hZ2UvcG5nPC9zdEV2dDpwYXJhbWV0ZXJzPgogICAgICAgICAgICAgICA8L3JkZjpsaT4KICAgICAgICAgICAgICAgPHJkZjpsaSByZGY6cGFyc2VUeXBlPSJSZXNvdXJjZSI+CiAgICAgICAgICAgICAgICAgIDxzdEV2dDphY3Rpb24+ZGVyaXZlZDwvc3RFdnQ6YWN0aW9uPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6cGFyYW1ldGVycz5jb252ZXJ0ZWQgZnJvbSBhcHBsaWNhdGlvbi92bmQuYWRvYmUucGhvdG9zaG9wIHRvIGltYWdlL3BuZzwvc3RFdnQ6cGFyYW1ldGVycz4KICAgICAgICAgICAgICAgPC9yZGY6bGk+CiAgICAgICAgICAgICAgIDxyZGY6bGkgcmRmOnBhcnNlVHlwZT0iUmVzb3VyY2UiPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6YWN0aW9uPnNhdmVkPC9zdEV2dDphY3Rpb24+CiAgICAgICAgICAgICAgICAgIDxzdEV2dDppbnN0YW5jZUlEPnhtcC5paWQ6MWJjNzBjNjQtN2Q4OC00NjU2LThkOGUtMjA5YThmNzdiYTFjPC9zdEV2dDppbnN0YW5jZUlEPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6d2hlbj4yMDE2LTAzLTMxVDEwOjExOjI1KzAyOjAwPC9zdEV2dDp3aGVuPgogICAgICAgICAgICAgICAgICA8c3RFdnQ6c29mdHdhcmVBZ2VudD5BZG9iZSBQaG90b3Nob3AgQ0MgMjAxNSAoTWFjaW50b3NoKTwvc3RFdnQ6c29mdHdhcmVBZ2VudD4KICAgICAgICAgICAgICAgICAgPHN0RXZ0OmNoYW5nZWQ+Lzwvc3RFdnQ6Y2hhbmdlZD4KICAgICAgICAgICAgICAgPC9yZGY6bGk+CiAgICAgICAgICAgIDwvcmRmOlNlcT4KICAgICAgICAgPC94bXBNTTpIaXN0b3J5PgogICAgICAgICA8eG1wTU06RGVyaXZlZEZyb20gcmRmOnBhcnNlVHlwZT0iUmVzb3VyY2UiPgogICAgICAgICAgICA8c3RSZWY6aW5zdGFuY2VJRD54bXAuaWlkOmNiMmFhZjg0LWY2N2ItNDVkYi05YTk2LWE5MTYyNzViNGY2NDwvc3RSZWY6aW5zdGFuY2VJRD4KICAgICAgICAgICAgPHN0UmVmOmRvY3VtZW50SUQ+YWRvYmU6ZG9jaWQ6cGhvdG9zaG9wOjkwYzA2MGQxLTM3MTktMTE3OS05NTQyLWQyMTcyMTViZTFhMzwvc3RSZWY6ZG9jdW1lbnRJRD4KICAgICAgICAgICAgPHN0UmVmOm9yaWdpbmFsRG9jdW1lbnRJRD54bXAuZGlkOmVmOGJkMmU1LTA5ODItNDYyYS1iZTJlLTZhNjJiYjIxODI5MDwvc3RSZWY6b3JpZ2luYWxEb2N1bWVudElEPgogICAgICAgICA8L3htcE1NOkRlcml2ZWRGcm9tPgogICAgICAgICA8cGhvdG9zaG9wOkNvbG9yTW9kZT4zPC9waG90b3Nob3A6Q29sb3JNb2RlPgogICAgICAgICA8cGhvdG9zaG9wOklDQ1Byb2ZpbGU+c1JHQiBJRUM2MTk2Ni0yLjE8L3Bob3Rvc2hvcDpJQ0NQcm9maWxlPgogICAgICAgICA8dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPgogICAgICAgICA8dGlmZjpYUmVzb2x1dGlvbj4xMjgwMDAwLzEwMDAwPC90aWZmOlhSZXNvbHV0aW9uPgogICAgICAgICA8dGlmZjpZUmVzb2x1dGlvbj4xMjgwMDAwLzEwMDAwPC90aWZmOllSZXNvbHV0aW9uPgogICAgICAgICA8dGlmZjpSZXNvbHV0aW9uVW5pdD4zPC90aWZmOlJlc29sdXRpb25Vbml0PgogICAgICAgICA8ZXhpZjpDb2xvclNwYWNlPjE8L2V4aWY6Q29sb3JTcGFjZT4KICAgICAgICAgPGV4aWY6UGl4ZWxYRGltZW5zaW9uPjEwMjQ8L2V4aWY6UGl4ZWxYRGltZW5zaW9uPgogICAgICAgICA8ZXhpZjpQaXhlbFlEaW1lbnNpb24+MTAyNDwvZXhpZjpQaXhlbFlEaW1lbnNpb24+CiAgICAgIDwvcmRmOkRlc2NyaXB0aW9uPgogICA8L3JkZjpSREY+CjwveDp4bXBtZXRhPgogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgIAo8P3hwYWNrZXQgZW5kPSJ3Ij8+Bm1ELgAAACBjSFJNAAB6JQAAgIMAAPn/AACA6QAAdTAAAOpgAAA6mAAAF2+SX8VGAAAbQUlEQVR42uzasa3DSBBEweOBkUz+Kc2ksmcxgwNGf7vKkrfqpSDjgU93n38AAACAq/3rCgAAAOB+7/ehqla+wMysnb95tv32229/8v70Z+8e/Abst99++/33e/YbZ3sDAAAAAAIIAAAAACAAAAAAAAIAAAAAIAAAAAAAAgAAAAAgAAAAAAACAAAAACAAAAAAAAIAAAAACAAAAACAAAAAAAAIAAAAAIAAAAAAAAgAAAAAgAAAAAAACAAAAACAAAAAAAACAAAAACAAAAAAAAIAAAAAIAAAAAAAAgAAAAAgAAAAAAACAAAAACAAAAAAgADgCgAAAEAAAAAAAC7wdPdxDQAAAHA3bwAAAABAgPf7UFUrX2Bm1s7fPNt+++23P3l/+rN3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';
+
+},{}],20:[function(require,module,exports){
 'use strict';
 Object.defineProperty(exports, "__esModule", { value: true });
 var Signal = /** @class */ (function () {
@@ -1119,7 +1620,7 @@ var Signal = /** @class */ (function () {
 }());
 exports.Signal = Signal;
 
-},{}],15:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 (function (global, factory) {
 	typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
@@ -46184,7 +46685,7 @@ exports.Signal = Signal;
 
 })));
 
-},{}],16:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 /**
  * @author qiao / https://github.com/qiao
  * @author mrdoob / http://mrdoob.com
@@ -47228,7 +47729,7 @@ Object.defineProperties( THREE.OrbitControls.prototype, {
 
 } );
 
-},{}],17:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 /**
  * @author arodic / https://github.com/arodic
  */
@@ -48379,4 +48880,4 @@ Object.defineProperties( THREE.OrbitControls.prototype, {
 
 }() );
 
-},{}]},{},[2]);
+},{}]},{},[5]);

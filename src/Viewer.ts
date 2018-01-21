@@ -5,7 +5,7 @@ import * as THREE from 'three'
 import { Signal } from './utils/Signal'
 
 // managers
-import { SceneManager } from './managers/SceneManager'
+import { CONTROL_MODES, SceneManager } from './managers/SceneManager'
 import { CameraManager, CAMERA_TYPES } from './managers/CameraManager'
 import { RenderManager, RenderOptions, RENDER_TYPES } from './managers/RenderManager'
 import { AnimationManager } from './managers/AnimationManager'
@@ -14,6 +14,10 @@ import { BuildVolumeManager } from './managers/BuildVolumeManager'
 // nodes
 import { SceneNode } from './nodes/SceneNode'
 import { MeshNode } from './nodes/MeshNode'
+
+// exporters
+import { GeometryExporter } from './exporters/GeometryExporter'
+import { BinarySTLExporter } from './exporters/BinarySTLExporter'
 
 /**
  * The Viewer class holds one complete instance of the 3D viewer.
@@ -38,6 +42,10 @@ export class Viewer {
     public cameraCreated: Signal<THREE.Camera> = new Signal()
     public nodeSelected: Signal<THREE.Object3D> = new Signal()
     public nodeDeselected: Signal<THREE.Object3D> = new Signal()
+    public buildVolumeChanged: Signal<THREE.Box3> = new Signal()
+    
+    // other public properties
+    public CONTROL_MODES = CONTROL_MODES
 
     /**
      * Initialize the viewer on a target canvas element.
@@ -82,7 +90,7 @@ export class Viewer {
         this.onRender.emit({
             force: true,
             source: Viewer.name,
-            type: RENDER_TYPES.CANVAS
+            type: `${RENDER_TYPES.CANVAS}`
         })
     }
 
@@ -144,6 +152,15 @@ export class Viewer {
     }
 
     /**
+     * Adds a simple cylinder mesh to the scene.
+     * @param {string} parentNodeId
+     * @returns {MeshNode}
+     */
+    public addCylinder (parentNodeId?: string): MeshNode {
+        return this._sceneManager.addCylinder(parentNodeId)
+    }
+
+    /**
      * Remove a mesh node from the scene.
      * @param {string} nodeId
      */
@@ -155,7 +172,51 @@ export class Viewer {
      * Get the bounding box of the build volume.
      * @returns {Box3}
      */
-    public getBuildVolumeBoundingBox () {
+    public getBuildVolumeBoundingBox (): THREE.Box3 {
         return this._buildVolumeManager.getBuildVolume().getBoundingBox()
+    }
+
+    /**
+     * Set the build volume size in mm.
+     * @param {number} width
+     * @param {number} depth
+     * @param {number} height
+     */
+    public setBuildVolumeSize (width: number, depth: number, height: number): void {
+        this._buildVolumeManager.setBuildVolumeSize(width, depth, height)
+    }
+
+    /**
+     * Set the control mode for mesh transformations.
+     * @param {CONTROL_MODES} controlMode
+     */
+    public setControlMode (controlMode: CONTROL_MODES) {
+        this._sceneManager.setControlMode(controlMode)
+    }
+
+    /**
+     * Set the snap distance for mesh transformations.
+     * @param {number} distance
+     */
+    public setControlSnapDistance (distance: number) {
+        this._sceneManager.setControlSnapDistance(distance)
+    }
+
+    /**
+     * Get a new instance of the geometry exporter.
+     * @param options
+     * @returns {GeometryExporter}
+     */
+    public getGeometryExporter (options?) {
+        return new GeometryExporter(this, options)
+    }
+
+    /**
+     * Get a new instance of the binary STL exporter.
+     * @param options
+     * @returns {BinarySTLExporter}
+     */
+    public getBinarySTLExporter (options?) {
+        return new BinarySTLExporter(this, options)
     }
 }

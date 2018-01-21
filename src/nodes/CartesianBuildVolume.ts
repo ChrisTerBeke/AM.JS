@@ -9,8 +9,8 @@ export class CartesianBuildVolume extends BuildVolume {
         super(width, depth, height)
     }
     
-    protected _createGeometry (width, depth, height) {
-        this.geometry = new THREE.BoxGeometry(width, depth, height)
-        this.geometry.translate(width / 2, depth / 2, height / 2)
+    protected _createGeometry () {
+        this.geometry = new THREE.BoxGeometry(1, 1, 1)
+        this._resize()
     }
 }

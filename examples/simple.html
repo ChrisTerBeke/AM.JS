@@ -15,8 +15,15 @@
         
         // log when viewer is ready
         viewer.onReady.connect(function () {
-            var cubeMeshNode = viewer.addCube();
+        	
+	        viewer.setBuildVolumeSize(200, 200, 200);
+	        viewer.setControlMode(viewer.CONTROL_MODES.ROTATE);
+	
+	        var cubeMeshNode = viewer.addCube();
 	        cubeMeshNode.setColor(new THREE.Color(0.4, 0.5, 1));
+	        
+	        var cylinderMeshNode = viewer.addCylinder();
+	        cylinderMeshNode.setColor(new THREE.Color(0.1, 1, 0.3));
         });
         
         // start the viewer instance

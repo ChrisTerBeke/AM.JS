@@ -6,20 +6,38 @@ import {RenderOptions} from '../managers/RenderManager'
 
 export class BuildVolume extends THREE.Mesh implements Node {
     
+    private _width: number
+    private _depth: number
+    private _height: number
+    
     constructor (width, depth, height) {
         super()
+        
+        // set size
+        this._width = width
+        this._depth = depth
+        this._height = height
 
         // override type
         this.type = NODE_TYPES.BUILD_VOLUME
+
+        // defaults
+        this.castShadow = false
+        this.receiveShadow = false
         
-        this._createGeometry(width, depth, height)
+        this._createGeometry()
         this.geometry.computeBoundingBox()
         
         this._createMaterial()
+        
+        // axis helper
+        const zeroPoint = new THREE.AxisHelper(5)
+        zeroPoint.position.set(0, 0, 0)
+        this.children.push(zeroPoint)
     }
 
     public getId (): string {
-        return undefined
+        return this.uuid
     }
 
     public getType (): string {
@@ -45,6 +63,13 @@ export class BuildVolume extends THREE.Mesh implements Node {
     public render (renderOptions?: RenderOptions): void {
         return
     }
+    
+    public setSize (width: number, depth: number, height: number): void {
+        this._width = width
+        this._depth = depth
+        this._height = height
+        this._resize()
+    }
 
     /**
      * Get the min and max values for the bounding box.
@@ -52,11 +77,19 @@ export class BuildVolume extends THREE.Mesh implements Node {
      */
     public getBoundingBox (): THREE.Box3 {
         this.geometry.computeBoundingBox()
-        return this.geometry.boundingBox
+        return new THREE.Box3(
+            this.geometry.boundingBox.min.multiply(this.scale).add(this.position),
+            this.geometry.boundingBox.max.multiply(this.scale).add(this.position)
+        )
+    }
+
+    protected _resize () {
+        this.position.set(this._width / 2, this._depth / 2, this._height / 2)
+        this.scale.set(this._width, this._depth, this._height)
     }
     
-    protected _createGeometry (width, depth, height) {
-        console.warn('Geometry should be implemented in BuildVolume sub types')
+    protected _createGeometry () {
+        console.warn('_createGeometry not implemented')
     }
     
     protected _createMaterial () {
