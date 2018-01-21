@@ -1,5 +1,5 @@
 {
-  "name": "3d-viewer",
+  "name": "am.js",
   "version": "1.0.0",
   "description": "Super fast browser based 3D viewer",
   "main": "dist/bundle.js",
