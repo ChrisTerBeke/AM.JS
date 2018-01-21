@@ -2,7 +2,7 @@ language: node_js
 
 node_js:
   - "8"
-  
+
 cache:
   yarn: true
   directories:
@@ -16,3 +16,6 @@ deploy:
     skip_cleanup: true
     local_dir: docs/
     github_token: $GITHUB_TOKEN
+    keep-history: true
+    on:
+      branch: master
