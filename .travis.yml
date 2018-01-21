@@ -11,6 +11,9 @@ cache:
 before_script:
   - yarn build
 
+after_script:
+  - yarn docs
+
 deploy:
   - provider: pages
     skip_cleanup: true
