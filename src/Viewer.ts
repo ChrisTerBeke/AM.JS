@@ -18,6 +18,7 @@ import { MeshNode } from './nodes/MeshNode'
 // exporters
 import { GeometryExporter } from './exporters/GeometryExporter'
 import { BinarySTLExporter } from './exporters/BinarySTLExporter'
+import { AsciiSTLExporter } from './exporters/AsciiSTLExporter'
 
 /**
  * The Viewer class holds one complete instance of the 3D viewer.
@@ -218,5 +219,13 @@ export class Viewer {
      */
     public getBinarySTLExporter (options?) {
         return new BinarySTLExporter(this, options)
+    }
+
+    /**
+     * Get a new instance of the ASCII STL exporter.
+     * @param options 
+     */
+    public getAsciiSTLExporter (options?) {
+        return new AsciiSTLExporter(this, options)
     }
 }
