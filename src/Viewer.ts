@@ -19,6 +19,7 @@ import { MeshNode } from './nodes/MeshNode'
 import { GeometryExporter } from './exporters/GeometryExporter'
 import { BinarySTLExporter } from './exporters/BinarySTLExporter'
 import { AsciiSTLExporter } from './exporters/AsciiSTLExporter'
+import { STLImporter } from './importers/STLImporter'
 
 /**
  * The Viewer class holds one complete instance of the 3D viewer.
@@ -145,6 +146,15 @@ export class Viewer {
     }
 
     /**
+     * Adds a custom mesh to the scene.
+     * @param mesh 
+     * @param parentNodeId 
+     */
+    public addMesh(mesh: MeshNode, parentNodeId?: string): MeshNode {
+        return this._sceneManager.addMesh(mesh, parentNodeId)
+    }
+
+    /**
      * Adds a simple cube/box mesh to the scene.
      * @returns {MeshNode}
      */
@@ -227,5 +237,13 @@ export class Viewer {
      */
     public getAsciiSTLExporter (options?) {
         return new AsciiSTLExporter(this, options)
+    }
+
+    /**
+     * Get a new instance of the generic STL importer.
+     * @param options 
+     */
+    public getSTLImporter(options?) {
+        return new STLImporter(this, options)
     }
 }

@@ -84,7 +84,8 @@ export class BuildVolume extends THREE.Mesh implements Node {
     }
 
     protected _resize () {
-        this.position.set(this._width / 2, this._depth / 2, this._height / 2)
+        const preventBottomFlickeringOffset = 0.5 // TODO: fix this for real later
+        this.position.set(this._width / 2, this._depth / 2, this._height / 2 - preventBottomFlickeringOffset)
         this.scale.set(this._width, this._depth, this._height)
     }
     
