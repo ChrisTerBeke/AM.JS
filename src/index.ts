@@ -1,10 +1,14 @@
-'use strict'
+// Copyright (c) 2018 Chris ter Beke
+// am.js is open source under the terms of LGPLv3 or higher
+import AMJS from './amjs/AMJS'
 
-import * as THREE from 'three'
-import { Viewer } from './Viewer'
+const canvas: HTMLCanvasElement = document.getElementById('canvas') as HTMLCanvasElement
+const amjs = new AMJS(canvas)
 
-// make sure THREE.js is available in browser context
-window['THREE'] = THREE
+amjs.onReady.connect(({ success }) => {
+	console.log('init success', success)
+})
 
-// make sure Viewer is available in browser context
-window['Viewer'] = Viewer
+console.log('amjs', amjs)
+
+amjs.init()

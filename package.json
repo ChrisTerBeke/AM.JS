@@ -1,28 +1,21 @@
 {
-  "name": "am.js",
-  "version": "1.0.0",
-  "description": "Super fast browser based 3D viewer",
-  "main": "dist/bundle.js",
-  "author": "Chris ter Beke <ctbeke@gmail.com>",
-  "license": "MIT",
-  "dependencies": {
-    "@types/three": "^0.84.34",
-    "three": "^0.90.0",
-    "three-stl-loader": "^1.0.6",
-    "underscore": "^1.8.3"
-  },
-  "scripts": {
-    "build": "yarn clean && ./node_modules/.bin/tsc && mkdir dist && ./node_modules/.bin/browserify build/index.js -o dist/bundle.js",
-    "watch": "yarn watch-typescript & yarn watch-js",
-    "watch-js": "./node_modules/.bin/watchify build/index.js -o dist/bundle.js",
-    "watch-typescript": "./node_modules/.bin/tsc --watch",
-    "clean": "rm -rf build & rm -rf dist",
-    "docs": "./node_modules/.bin/typedoc --out ./docs ./src && touch ./docs/.nojekyll"
-  },
-  "devDependencies": {
-    "browserify": "^14.5.0",
-    "typedoc": "^0.9.0",
-    "typescript": "^2.6.2",
-    "watchify": "^3.9.0"
-  }
+	"name": "am.js",
+	"version": "1.0.0",
+	"description": "Browser-based 3D viewer for additive manufacturing solutions.",
+	"author": {
+		"name": "Chris ter Beke",
+		"email": "info@christerbeke.com",
+		"url": "https://christerbeke.com"
+	},
+	"scripts": {
+		"start": "parcel src/index.html",
+		"build": "parcel build src/index.html"
+	},
+	"devDependencies": {
+		"@types/three": "^0.92.18",
+		"parcel-bundler": "^1.9.7",
+		"parcel-plugin-typescript": "^1.0.0",
+		"three": "^0.95.0",
+		"typescript": "^3.0.1"
+	}
 }
