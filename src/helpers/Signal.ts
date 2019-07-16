@@ -1,5 +1,3 @@
-'use strict'
-
 /**
  * Interface for the Signal class.
  */
@@ -38,7 +36,7 @@ class Signal<T> implements SignalInterface<T> {
 	 * @param data The data to emit.
 	 */
     public emit(data?: T): void {
-        this._handlers.slice(0).forEach(h => h(data))
+        this._handlers.forEach(h => h(data))
     }
 }
 

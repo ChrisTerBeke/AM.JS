@@ -13,7 +13,7 @@ export enum TRANSFORM_MODES {
 
 export class MeshNode extends THREE.Mesh implements Node {
 
-    public geometry: THREE.Geometry // override for typing
+    // public geometry: THREE.Geometry // override for typing
     public material: THREE.MeshPhongMaterial // override with specific material type for typing
     
     // transforms
@@ -33,16 +33,16 @@ export class MeshNode extends THREE.Mesh implements Node {
     public onPropertyChanged: Signal<any> = new Signal()
     
     // rendering
-    private _isDirty: boolean
+    // private _isDirty: boolean
     
     constructor (geometry?: THREE.Geometry) {
         super()
         
         // override type
-        this.type = NODE_TYPES.MESH
+        // this.type = NODE_TYPES.MESH
         
         // geometry from existing or create new
-        this.geometry = geometry || new THREE.Geometry()
+        // this.geometry = geometry || new THREE.Geometry()
         
         // set default material
         this._baseColor = new THREE.Color().setRGB(.5, .5, .5)
@@ -61,16 +61,16 @@ export class MeshNode extends THREE.Mesh implements Node {
         this._allowTransform = true
         this._originalBounds = this._currentBounds = this._calculateBounds()
         this._modelHeight = this._calculateModelHeight()
-        this._isDirty = true
+        // this._isDirty = true
     }
 
-    public getId (): string {
-        return this.uuid
-    }
+    // public getId (): string {
+    //     return this.uuid
+    // }
     
-    public getType (): string {
-        return this.type
-    }
+    // public getType (): string {
+    //     return this.type
+    // }
 
     public addChild (node: THREE.Object3D): void {
         this.add(node)

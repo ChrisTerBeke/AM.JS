@@ -13,9 +13,12 @@
 	},
 	"devDependencies": {
 		"@types/three": "^0.92.18",
-		"parcel-bundler": "^1.9.7",
+		"parcel-bundler": "^1.12.3",
 		"parcel-plugin-typescript": "^1.0.0",
-		"three": "^0.95.0",
+		"three": "^0.106.0",
 		"typescript": "^3.0.1"
+	},
+	"dependencies": {
+		"three-stl-loader": "^1.0.6"
 	}
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2018 Chris ter Beke
+// Copyright (c) 2019 Chris ter Beke
 // am.js is open source under the terms of LGPLv3 or higher
 
 /**

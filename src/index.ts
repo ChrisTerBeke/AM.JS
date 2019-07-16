@@ -1,14 +1,20 @@
-// Copyright (c) 2018 Chris ter Beke
-// am.js is open source under the terms of LGPLv3 or higher
 import AMJS from './amjs/AMJS'
+import fish from './fish.stl'
 
 const canvas: HTMLCanvasElement = document.getElementById('canvas') as HTMLCanvasElement
 const amjs = new AMJS(canvas)
 
-amjs.onReady.connect(({ success }) => {
-	console.log('init success', success)
+amjs.onReady.connect(() => {
+	console.log('init')
 })
 
-console.log('amjs', amjs)
+amjs.onMeshLoaded.connect(({ node }) => {
+    console.log('mesh loaded', node)
+})
+
+amjs.onMeshError.connect(({ error }) => {
+    console.log('mesh loading error', error)
+})
 
 amjs.init()
+amjs.loadStlFile(fish)

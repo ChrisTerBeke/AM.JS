@@ -1,18 +1,11 @@
-// Copyright (c) 2018 Chris ter Beke
-// am.js is open source under the terms of LGPLv3 or higher
-
-// helpers
+import * as THREE from 'three'
+import Config from './Config'
 import generateUUID from '../helpers/generateUUID'
 import Signal from '../helpers/Signal'
-
-// interfaces
 import AMJSInterface from './AMJSInterface'
-
-// config
-import Config from './Config'
-
-// managers
 import CameraManager from './camera/CameraManager'
+import NodeManager from './nodes/NodeManager'
+import Node from './nodes/NodeInterface'
 
 /**
  * The main class that kick-starts an instance of am.js.
@@ -28,73 +21,82 @@ class AMJS implements AMJSInterface {
 	}
 
 	// HTML canvas element to bind this instance to.
-	private _canvas: HTMLCanvasElement
+    private _canvas: HTMLCanvasElement
+    private _renderer: THREE.WebGLRenderer
 
 	// managers
-	private _cameraManager: CameraManager
-
+    private _cameraManager: CameraManager
+    private _nodeManager: NodeManager
+    
 	// signals
-	public onReady: Signal<{success: boolean}> = new Signal()
+    public onReady: Signal<{}> = new Signal()
+    public onMeshLoaded: Signal<{node: Node}> = new Signal()
+    public onMeshError: Signal<{error: ErrorEvent}> = new Signal()
+    public onMeshProgress: Signal<{progress: ProgressEvent}> = new Signal()
 
-	/**
-	 * Creates an instance of AMJS.
-	 * @param {HTMLCanvasElement} canvas
-	 * @memberof AMJS
-	 */
-	public constructor(canvas: HTMLCanvasElement) {
-		console.debug(this._UUID, 'Creating application instance...')
-
-		// set the initial canvas element
+	constructor(canvas: HTMLCanvasElement) {
 		this.setCanvas(canvas)
 	}
 
-	/**
-	 * Initialize the application.
-	 */
 	public init(): void {
-		// initialize the managers
-		this._cameraManager = new CameraManager(this)
-
-		// indicate that we're ready to roll
+        this._loadNodeManager()
+        this._loadCameraManager()
 		this.onReady.emit({ success: true })
 	}
 
-	/**
-	 * Get application config.
-	 */
 	public getConfig(): Config {
 		return this._config
 	}
 
-	/**
-	 * Get application UUID.
-	 */
 	public getUUID(): string {
 		return this._UUID
-	}
-
-	/**
-	 * Get the bound canvas element.
-	 */
+    }
+    
 	public getCanvas(): HTMLCanvasElement {
 		return this._canvas
 	}
 
-	/**
-	 * Bind to a new canvas element.
-	 * Will trigger a forced re-render.
-	 * @param canvas The canvas element to bind to.
-	 */
 	public setCanvas(canvas: HTMLCanvasElement): void {
-		this._canvas = canvas
+        this._canvas = canvas
+        this._renderer = new THREE.WebGLRenderer({
+            canvas: this._canvas,
+            alpha: true,
+        })
+        this._renderer.shadowMap.enabled = true
+        this._renderer.shadowMap.type = THREE.PCFSoftShadowMap
+        this._renderer.setPixelRatio(window.devicePixelRatio ? window.devicePixelRatio : 1)
+        // this._renderer.setSize(this._canvas.offsetWidth, this._canvas.offsetHeight)
+        this._renderer.setClearColor(0xffffff)
 	}
 
-	/**
-	 * Get the camera manager.
-	 */
-	public getCameraManager(): CameraManager {
-		return this._cameraManager
-	}
+    public loadMesh(mesh: Node): void {
+        this._nodeManager.addNode(mesh)
+    }
+
+    public loadStlFile(filename: string): void {
+        this._nodeManager.loadStlFile(filename)
+    }
+
+    private _loadNodeManager(): void {
+        this._nodeManager = new NodeManager()
+        this._nodeManager.onMeshAdded.connect(data => {
+            this._render()
+            this.onMeshLoaded.emit(data)
+        })
+        this._nodeManager.onMeshError.connect(data => this.onMeshError.emit(data))
+        this._nodeManager.onMeshProgress.connect(data => this.onMeshProgress.emit(data))
+    }
+
+    private _loadCameraManager(): void {
+        this._cameraManager = new CameraManager(this._canvas)
+        this._nodeManager.addCamera(this._cameraManager.getCamera())
+        this._render()
+    }
+
+    private _render(): void {
+        this._nodeManager.render()
+        this._renderer.render(this._nodeManager.getScene(), this._cameraManager.getCamera())
+    }
 }
 
 export default AMJS

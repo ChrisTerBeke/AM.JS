@@ -1,5 +1,3 @@
-// Copyright (c) 2018 Chris ter Beke
-// am.js is open source under the terms of LGPLv3 or higher
 import Config from './Config'
 
 // interfaces
@@ -7,7 +5,7 @@ import { SignalInterface } from '../helpers/Signal'
 
 interface AMJSInterface {
 	// signals
-	onReady: SignalInterface<{success: boolean}>
+	onReady: SignalInterface<{}>
 	// initialize application
 	init(): void
 	// application config
