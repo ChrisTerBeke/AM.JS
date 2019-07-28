@@ -10,8 +10,8 @@
 	},
 	"scripts": {
 		"start": "parcel src/index.html",
-        "build": "parcel build src/index.html",
-        "test:lint": "tslint --project ."
+		"build": "parcel build src/index.html",
+		"test:lint": "tslint --project ."
 	},
 	"dependencies": {
 		"three": "^0.106.0",
@@ -20,7 +20,6 @@
 	"devDependencies": {
 		"@types/three": "^0.92.18",
 		"parcel-bundler": "^1.12.3",
-		"parcel-plugin-typescript": "^1.0.0",
 		"tslint": "^5.18.0",
 		"typescript": "^3.0.1"
 	}
