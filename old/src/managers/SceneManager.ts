@@ -55,11 +55,6 @@ export class SceneManager {
         
         // setup the raycaster helper
         this._raycaster = new THREE.Raycaster()
-        
-        // add lighting
-        this._addAmbientLight(new THREE.Color(0x909090))
-        this._addDirectionalLight(new THREE.Vector3(-500, -700, -400), new THREE.Color(0xdddddd), 0.2)
-        this._addShadowedLight(new THREE.Vector3(500, 700, 400), new THREE.Color(0xffffff), 0.9)
 
         // initialize the transform controls on the camera object
         viewer.cameraCreated.connect(camera => {
@@ -163,22 +158,6 @@ export class SceneManager {
     }
 
     /**
-     * Add a camera to the scene.
-     * @param {Camera} camera
-     */
-    public addCamera (camera: THREE.Camera) {
-        this._sceneRootNode.getScene().add(camera)
-    }
-
-    /**
-     * Add a light source to the scene.
-     * @param {Light} light
-     */
-    public addLight (light: THREE.Light) {
-        this._sceneRootNode.getScene().add(light)
-    }
-
-    /**
      * Set the control mode for transformations.
      * @param {CONTROL_MODES} controlMode
      */
@@ -241,47 +220,6 @@ export class SceneManager {
         })
         
         return nodeToFind
-    }
-
-    /**
-     * Add a spotlight with shadow casting to the scene.
-     * @param {Vector3} position
-     * @param {Color} color
-     * @param intensity
-     * @private
-     */
-    private _addShadowedLight (position: THREE.Vector3, color: THREE.Color, intensity): void {
-        const spotLight = new THREE.SpotLight(color, intensity)
-        spotLight.position.set(position.x, position.y, position.z)
-        spotLight.castShadow = true
-        spotLight.shadow.bias = 0.00001
-        spotLight.shadow.mapSize.width = 2048
-        spotLight.shadow.mapSize.height = 2048
-        this.addLight(spotLight)
-    }
-
-    /**
-     * Add a directional light source to the scene.
-     * @param {Vector3} position
-     * @param {Color} color
-     * @param intensity
-     * @private
-     */
-    private _addDirectionalLight (position: THREE.Vector3, color: THREE.Color, intensity): void {
-        const directionalLight = new THREE.DirectionalLight(color, intensity)
-        directionalLight.position.set(position.x, position.y, position.z)
-        directionalLight.castShadow = false
-        this.addLight(directionalLight)
-    }
-
-    /**
-     * Add an ambient light source to the scene.
-     * @param {Color} color
-     * @private
-     */
-    private _addAmbientLight (color: THREE.Color): void {
-        const ambientLight = new THREE.AmbientLight(color)
-        this.addLight(ambientLight)
     }
 
     /**

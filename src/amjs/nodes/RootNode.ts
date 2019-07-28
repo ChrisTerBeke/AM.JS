@@ -25,6 +25,10 @@ class RootNode extends THREE.Object3D {
         this._scene.add(camera)
     }
 
+    public addLight(light: THREE.Light): void {
+        this._scene.add(light)
+    }
+
     public addChild(node: Node): void {
         this._scene.add(node)
     }

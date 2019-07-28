@@ -34,6 +34,10 @@ class NodeManager {
         this._rootNode.addCamera(camera)
     }
 
+    public addLight(light: THREE.Light): void {
+        this._rootNode.addLight(light)
+    }
+
     public addNode(node: Node): void {
         this._rootNode.addChild(node)
         this.onMeshAdded.emit({ node })

@@ -5,10 +5,6 @@ import * as THREE from 'three'
  */
 class CameraFactory {
 
-	/**
-	 * Creates a new perspective camera on a target canvas.
-	 * @param canvas The canvas to render.
-	 */
 	public static createPerspectiveCamera(canvas: HTMLCanvasElement): THREE.PerspectiveCamera {
 		return new THREE.PerspectiveCamera(
 			60, // field of view
@@ -18,10 +14,6 @@ class CameraFactory {
 		)
 	}
 
-	/**
-	 * Creates a new orthographic camera on a target canvas.
-	 * @param canvas The canvas to render.
-	 */
 	public static createOrthographicCamera(canvas: HTMLCanvasElement): THREE.OrthographicCamera {
 		return new THREE.OrthographicCamera(
 			canvas.offsetWidth / -2, // top left

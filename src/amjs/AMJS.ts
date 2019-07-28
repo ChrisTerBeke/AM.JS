@@ -6,6 +6,7 @@ import AMJSInterface from './AMJSInterface'
 import CameraManager from './camera/CameraManager'
 import NodeManager from './nodes/NodeManager'
 import Node from './nodes/NodeInterface'
+import LightFactory from './lighting/LightFactory'
 
 /**
  * The main class that kick-starts an instance of am.js.
@@ -41,6 +42,7 @@ class AMJS implements AMJSInterface {
 	public init(): void {
         this._loadNodeManager()
         this._loadCameraManager()
+        this._loadLighting()
 		this.onReady.emit({ success: true })
 	}
 
@@ -91,6 +93,12 @@ class AMJS implements AMJSInterface {
         this._cameraManager = new CameraManager(this._canvas)
         this._nodeManager.addCamera(this._cameraManager.getCamera())
         this._render()
+    }
+
+    private _loadLighting(): void {
+        this._nodeManager.addLight(LightFactory.createAmbientLight())
+        this._nodeManager.addLight(LightFactory.createDirectionalLight())
+        this._nodeManager.addLight(LightFactory.createShadowedLight())
     }
 
     private _render(): void {
