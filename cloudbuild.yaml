@@ -1,7 +1,7 @@
 steps:
 - id: 'lint'
   name: 'gcr.io/cloud-builders/npm'
-  args: ['test:lint']
+  args: ['run test:lint']
 - id: 'build'
   name: 'gcr.io/cloud-builders/npm'
-  args: ['build']
+  args: ['run build']
