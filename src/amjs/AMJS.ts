@@ -65,7 +65,7 @@ class AMJS implements AMJSInterface {
         this._renderer.shadowMap.enabled = true
         this._renderer.shadowMap.type = THREE.PCFSoftShadowMap
         this._renderer.setPixelRatio(window.devicePixelRatio ? window.devicePixelRatio : 1)
-        // this._renderer.setSize(this._canvas.offsetWidth, this._canvas.offsetHeight)
+        this._renderer.setSize(this._canvas.width, this._canvas.height)
         this._renderer.setClearColor(0xffffff)
 	}
 

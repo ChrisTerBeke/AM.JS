@@ -20,6 +20,8 @@ class CameraManager {
 	constructor(canvas: HTMLCanvasElement, type: CAMERA_TYPES = CAMERA_TYPES.PERSPECTIVE) {
         this._canvas = canvas
         this.setCameraType(type)
+        this.setCameraPosition(new THREE.Vector3(50, 50, 50))
+        this.lookAt(new THREE.Vector3(0, 0, 0))
 	}
 
 	public getCamera(): THREE.Camera {
@@ -27,6 +29,7 @@ class CameraManager {
 	}
 
 	public setCameraType(type: CAMERA_TYPES) {
+        
 		// maps camera type to camera object creation method
 		const cameraTypeToFactoryMap: {[type: string]: (canvas: HTMLCanvasElement) => THREE.Camera} = {
 			[CAMERA_TYPES.ORTHOGRAPHIC]: CameraFactory.createOrthographicCamera,
