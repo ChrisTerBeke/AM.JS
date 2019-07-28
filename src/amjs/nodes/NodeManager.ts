@@ -1,7 +1,7 @@
 import Signal from '../../helpers/Signal'
 import Node from './NodeInterface'
 import RootNode from './RootNode'
-import StlImporter from './StlImporter'
+import StlImporter from '../files/StlImporter'
 
 /**
  * Class responsible for orchestrating all nodes in the scene.

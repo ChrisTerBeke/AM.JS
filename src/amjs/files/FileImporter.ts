@@ -1,19 +1,7 @@
-import * as THREE from 'three'
-import MeshNode from './MeshNode'
-import Node from './NodeInterface'
+import MeshNode from '../nodes/MeshNode'
+import Node from '../nodes/NodeInterface'
 import Signal from '../../helpers/Signal'
-
-/**
- * Base interace for all file loaders.
- */
-export interface FileLoader {
-    load(
-        url: string,
-        onLoad: (geometry: THREE.BufferGeometry) => void,
-        onProgress?: (event: ProgressEvent) => void,
-        onError?: (event: ErrorEvent) => void
-    ) : void;
-}
+import FileLoader from './FileLoaderInterface'
 
 /**
  * The file importer is responsible for importing files and converting them to MeshNode objects.
