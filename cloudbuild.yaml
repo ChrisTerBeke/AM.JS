@@ -1,0 +1,7 @@
+steps:
+- id: 'lint'
+  name: 'gcr.io/cloud-builders/npm'
+  args: ['test:lint']
+- id: 'build'
+  name: 'gcr.io/cloud-builders/npm'
+  args: ['build']
