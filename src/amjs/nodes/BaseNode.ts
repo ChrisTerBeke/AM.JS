@@ -1,7 +1,7 @@
 import * as THREE from 'three'
-import Node, { NODE_TYPES } from './NodeInterface'
+import INode, { NODE_TYPES } from './NodeInterface'
 
-class BaseNode extends THREE.Mesh implements Node {
+class BaseNode extends THREE.Mesh implements INode {
 
     // override for typing
     public geometry: THREE.Geometry | THREE.BufferGeometry
@@ -14,7 +14,7 @@ class BaseNode extends THREE.Mesh implements Node {
 
     constructor(
         type: NODE_TYPES = NODE_TYPES.NONE,
-        geometry: THREE.Geometry | THREE.BufferGeometry = new THREE.BufferGeometry()
+        geometry: THREE.Geometry | THREE.BufferGeometry = new THREE.BufferGeometry(),
     ) {
         super(geometry)
         this._type = type
@@ -28,24 +28,24 @@ class BaseNode extends THREE.Mesh implements Node {
         return this._type
     }
 
-    public getParent(): Node {
-        throw new Error("Method not implemented.");
+    public getParent(): INode {
+        throw new Error('Method not implemented.')
     }
 
-    public getChildren(): Node[] {
-        throw new Error("Method not implemented.");
+    public getChildren(): INode[] {
+        throw new Error('Method not implemented.')
     }
 
-    public addChild(node: Node): void {
-        throw new Error("Method not implemented.");
+    public addChild(node: INode): void {
+        throw new Error('Method not implemented.')
     }
 
-    public removeChild(node: Node): void {
-        throw new Error("Method not implemented.");
+    public removeChild(node: INode): void {
+        throw new Error('Method not implemented.')
     }
 
     public render(): void {
-        throw new Error("Method not implemented.");
+        throw new Error('Method not implemented.')
     }
 }
 

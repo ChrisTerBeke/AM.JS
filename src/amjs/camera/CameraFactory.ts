@@ -10,7 +10,7 @@ class CameraFactory {
 			60, // field of view
 			canvas.offsetWidth / canvas.offsetHeight, // aspect ratio
 			0.1, // minimum render distance
-			100000 // maximum render distance
+			100000, // maximum render distance
 		)
 	}
 
@@ -21,7 +21,7 @@ class CameraFactory {
             canvas.offsetHeight / 2, // bottom left
             canvas.offsetHeight / - 2, // bottom right
             1, // minimum render distance
-            100 // maximum render distance
+            100, // maximum render distance
 		)
 	}
 }

@@ -1,7 +1,7 @@
-import MeshNode from '../nodes/MeshNode'
-import Node from '../nodes/NodeInterface'
 import Signal from '../../helpers/Signal'
-import FileLoader from './FileLoaderInterface'
+import MeshNode from '../nodes/MeshNode'
+import INode from '../nodes/NodeInterface'
+import IFileLoader from './FileLoaderInterface'
 
 /**
  * The file importer is responsible for importing files and converting them to MeshNode objects.
@@ -10,13 +10,13 @@ import FileLoader from './FileLoaderInterface'
  */
 class FileImporter {
 
-    public onMeshImported: Signal<{node: Node}> = new Signal()
+    public onMeshImported: Signal<{node: INode}> = new Signal()
     public onMeshError: Signal<{error: ErrorEvent}> = new Signal()
     public onMeshProgress: Signal<{progress: ProgressEvent}> = new Signal()
 
-    private _loader: FileLoader = null
+    private _loader: IFileLoader = null
 
-    constructor (loader: FileLoader) {
+    constructor(loader: IFileLoader) {
         this._loader = loader
     }
 

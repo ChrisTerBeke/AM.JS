@@ -1,7 +1,7 @@
 import Signal from '../../helpers/Signal'
-import Node from './NodeInterface'
-import RootNode from './RootNode'
 import StlImporter from '../files/StlImporter'
+import INode from './NodeInterface'
+import RootNode from './RootNode'
 
 /**
  * Class responsible for orchestrating all nodes in the scene.
@@ -9,7 +9,7 @@ import StlImporter from '../files/StlImporter'
 class NodeManager {
 
     // signals
-    public onMeshAdded: Signal<{node: Node}> = new Signal()
+    public onMeshAdded: Signal<{node: INode}> = new Signal()
     public onMeshRemoved: Signal<{}> = new Signal()
     public onMeshError: Signal<{error: ErrorEvent}> = new Signal()
     public onMeshProgress: Signal<{progress: ProgressEvent}> = new Signal()
@@ -20,10 +20,10 @@ class NodeManager {
     // scene
     private _rootNode: RootNode = new RootNode()
 
-    constructor () {
+    constructor() {
         this._stlImporter.onMeshImported.connect(this._meshImported.bind(this))
-        this._stlImporter.onMeshError.connect(data => this.onMeshError.emit(data))
-        this._stlImporter.onMeshProgress.connect(data => this.onMeshProgress.emit(data))
+        this._stlImporter.onMeshError.connect((data) => this.onMeshError.emit(data))
+        this._stlImporter.onMeshProgress.connect((data) => this.onMeshProgress.emit(data))
     }
 
     public getScene(): THREE.Scene {
@@ -38,12 +38,12 @@ class NodeManager {
         this._rootNode.addLight(light)
     }
 
-    public addNode(node: Node): void {
+    public addNode(node: INode): void {
         this._rootNode.addChild(node)
         this.onMeshAdded.emit({ node })
     }
 
-    public removeNode(node: Node): void {
+    public removeNode(node: INode): void {
         this._rootNode.removeChild(node)
         this.onMeshRemoved.emit()
     }
@@ -56,7 +56,7 @@ class NodeManager {
         this._stlImporter.load(filename)
     }
 
-    private _meshImported(data: { node: Node }): void {
+    private _meshImported(data: { node: INode }): void {
         this.addNode(data.node)
     }
 }

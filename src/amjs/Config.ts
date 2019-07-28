@@ -1,5 +1,5 @@
-interface Config {
+interface IConfig {
 	debug: boolean
 }
 
-export default Config
+export default IConfig

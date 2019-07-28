@@ -1,7 +1,5 @@
 import * as THREE from 'three'
-import BaseNode from './BaseNode'
-import { NODE_TYPES } from './NodeInterface'
-import Node from './NodeInterface'
+import INode from './NodeInterface'
 
 /**
  * The root node contains the scene and all objects in it.
@@ -12,10 +10,6 @@ import Node from './NodeInterface'
 class RootNode extends THREE.Object3D {
 
     private _scene: THREE.Scene = new THREE.Scene()
-
-    // constructor() {
-    //     super(NODE_TYPES.ROOT)
-    // }
 
     public getScene(): THREE.Scene {
         return this._scene
@@ -29,22 +23,24 @@ class RootNode extends THREE.Object3D {
         this._scene.add(light)
     }
 
-    public addChild(node: Node): void {
+    public addChild(node: INode): void {
         this._scene.add(node)
     }
 
-    public removeChild(node: Node): void {
+    public removeChild(node: INode): void {
         this._scene.remove(node)
     }
 
-    public getChildren(): Node[] {
-        return this._scene.children as Node[]
+    public getChildren(): INode[] {
+        return this._scene.children as INode[]
     }
 
     public render(): void {
-        for (let node of this.getChildren()) {
+        for (const node of this.getChildren()) {
             // TODO: this is ugly, maybe userData should be used instead of a custom node tree.
-            node.render && node.render()
+            if (typeof(node.render) === 'function') {
+                node.render()
+            }
         }
     }
 }

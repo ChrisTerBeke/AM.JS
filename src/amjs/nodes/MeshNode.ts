@@ -10,7 +10,7 @@ class MeshNode extends BaseNode {
         // material
         this.material = new THREE.MeshPhongMaterial({
             color: new THREE.Color(.5, .5, .5),
-            shininess: 50
+            shininess: 50,
         })
 
         // shadows

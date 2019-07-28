@@ -9,13 +9,13 @@ export enum NODE_TYPES {
     MESH = 'mesh',
     GROUP = 'group',
     BUILD_VOLUME = 'buildVolume',
-    BUILD_PLATE = 'buildPlate'
+    BUILD_PLATE = 'buildPlate',
 }
 
 /**
  * Shared interface for all node types.
  */
-interface Node extends THREE.Object3D {
+interface INode extends THREE.Object3D {
 
     /**
      * Get the unique ID of a node.
@@ -31,27 +31,27 @@ interface Node extends THREE.Object3D {
 
     /**
      * Get the parent node.
-     * @returns {Node}
+     * @returns {INode}
      */
-    getParent(): Node | null
+    getParent(): INode | null
 
     /**
      * Get child nodes.
-     * @returns {Node[]}
+     * @returns {INode[]}
      */
-    getChildren(): Node[]
+    getChildren(): INode[]
 
-        /**
+    /**
      * Add a child node.
-     * @param {Node} childNode
+     * @param {INode} childNode
      */
-    addChild(node: Node): void
+    addChild(node: INode): void
 
     /**
      * Remove a child node.
-     * @param {Node} childNode
+     * @param {INode} childNode
      */
-    removeChild(node: Node): void
+    removeChild(node: INode): void
 
     /**
      * Render this node.
@@ -59,4 +59,4 @@ interface Node extends THREE.Object3D {
     render(): void
 }
 
-export default Node
+export default INode

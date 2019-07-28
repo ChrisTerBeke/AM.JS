@@ -1,6 +1,6 @@
+import benchy from './3DBenchy.stl'
 import AMJS from './amjs/AMJS'
 import fish from './fish.stl'
-import benchy from './3DBenchy.stl'
 
 const canvas: HTMLCanvasElement = document.getElementById('canvas') as HTMLCanvasElement
 const amjs = new AMJS(canvas)

@@ -6,7 +6,7 @@ import CameraFactory from './CameraFactory'
  */
 export enum CAMERA_TYPES {
 	ORTHOGRAPHIC = 'orthographic',
-	PERSPECTIVE = 'perspective'
+	PERSPECTIVE = 'perspective',
 }
 
 /**
@@ -29,11 +29,11 @@ class CameraManager {
 	}
 
 	public setCameraType(type: CAMERA_TYPES) {
-        
+
 		// maps camera type to camera object creation method
 		const cameraTypeToFactoryMap: {[type: string]: (canvas: HTMLCanvasElement) => THREE.Camera} = {
 			[CAMERA_TYPES.ORTHOGRAPHIC]: CameraFactory.createOrthographicCamera,
-			[CAMERA_TYPES.PERSPECTIVE]: CameraFactory.createPerspectiveCamera
+			[CAMERA_TYPES.PERSPECTIVE]: CameraFactory.createPerspectiveCamera,
 		}
 
 		// create the camera and target it at the canvas

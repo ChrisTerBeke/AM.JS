@@ -1,15 +1,15 @@
-import Config from './Config'
+import CIonfig from './Config'
 
 // interfaces
-import { SignalInterface } from '../helpers/Signal'
+import { ISignalInterface } from '../helpers/Signal'
 
-interface AMJSInterface {
+interface IAMJSInterface {
 	// signals
-	onReady: SignalInterface<{}>
+	onReady: ISignalInterface<{}>
 	// initialize application
 	init(): void
 	// application config
-	getConfig(): Config
+	getConfig(): CIonfig
 	// application UUID
 	getUUID(): string
 	// get canvas target element
@@ -18,4 +18,4 @@ interface AMJSInterface {
 	setCanvas(canvas: HTMLCanvasElement): void
 }
 
-export default AMJSInterface
+export default IAMJSInterface
