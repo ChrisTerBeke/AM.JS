@@ -1,10 +1,22 @@
-'use strict'
+import benchy from './3DBenchy.stl'
+import AMJS from './amjs/AMJS'
+import fish from './fish.stl'
 
-import * as THREE from 'three'
-import { Viewer } from './Viewer'
+const canvas: HTMLCanvasElement = document.getElementById('canvas') as HTMLCanvasElement
+const amjs = new AMJS(canvas)
 
-// make sure THREE.js is available in browser context
-window['THREE'] = THREE
+amjs.onReady.connect(() => {
+	console.log('init')
+})
 
-// make sure Viewer is available in browser context
-window['Viewer'] = Viewer
+amjs.onMeshLoaded.connect(({ node }) => {
+    console.log('mesh loaded', node)
+})
+
+amjs.onMeshError.connect(({ error }) => {
+    console.log('mesh loading error', error)
+})
+
+amjs.init()
+amjs.loadStlFile(fish)
+amjs.loadStlFile(benchy)
