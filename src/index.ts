@@ -1,6 +1,5 @@
 import benchy from './3DBenchy.stl'
 import AMJS from './amjs/AMJS'
-import fish from './fish.stl'
 
 const canvas: HTMLCanvasElement = document.getElementById('canvas') as HTMLCanvasElement
 const amjs = new AMJS(canvas)
@@ -19,5 +18,4 @@ amjs.onMeshError.connect(({ error }) => {
 })
 
 amjs.init()
-// amjs.loadStlFile(fish)
 amjs.loadStlFile(benchy)
