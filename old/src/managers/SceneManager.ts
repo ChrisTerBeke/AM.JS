@@ -11,12 +11,6 @@ import { MeshNode } from '../nodes/MeshNode'
 import { SimpleMeshFactory } from '../nodes/SimpleMeshFactory'
 import { RENDER_TYPES } from './RenderManager'
 
-export enum CONTROL_MODES {
-    TRANSLATE = 'translate',
-    ROTATE = 'rotate',
-    SCALE = 'scale'
-}
-
 export class SceneManager {
     
     private _viewer: Viewer
@@ -158,49 +152,11 @@ export class SceneManager {
     }
 
     /**
-     * Set the control mode for transformations.
-     * @param {CONTROL_MODES} controlMode
-     */
-    public setControlMode (controlMode: CONTROL_MODES) {
-        this._controls.setMode(`${controlMode}`)
-        
-        // set the correct space to give the best user experience
-        if (controlMode == CONTROL_MODES.SCALE) {
-            this._controls.setSpace('local')
-        } else {
-            this._controls.setSpace('world')
-        }
-    }
-
-    /**
      * Set the snapping distance for transformations.
      * @param {number} distance
      */
     public setControlSnapDistance (distance: number) {
         this._controls.setSnap(distance)
-    }
-
-    /**
-     * Handle scene changes.
-     * @private
-     */
-    private _onSceneChanged () {
-        this._viewer.onRender.emit({
-            type: `${RENDER_TYPES.SCENE}`,
-            source: `sceneNode_${this._sceneRootNode.getId()}`
-        })
-    }
-
-    /**
-     * Handle property changes from any of the meshNodes in the scene tree.
-     * @param propertyChangedData
-     * @private
-     */
-    private _onMeshNodePropertyChanged (propertyChangedData: any) {
-        this._viewer.onRender.emit({
-            type: `${RENDER_TYPES.MESH}`,
-            source: `meshNode_${propertyChangedData.nodeId}`
-        })
     }
 
     /**
@@ -229,42 +185,6 @@ export class SceneManager {
     private _addEventListeners () {
         this._canvas.addEventListener('mousedown', this._onMouseDown.bind(this), false)
         this._canvas.addEventListener('mouseup', this._onMouseUp.bind(this), false)
-    }
-
-    /**
-     * Update the transform controls when needed.
-     * This is executed after a camera change.
-     * @private
-     */
-    private _updateTransformControls () {
-        
-        this._controls = new THREE.TransformControls(this._camera, this._canvas)
-
-        // disable the camera controls while transforming
-        this._controls.addEventListener('mouseDown', () => {
-            this._viewer.transformStarted.emit()
-        })
-        
-        // enable the camera controls when done transforming
-        this._controls.addEventListener('mouseUp', () => {
-            this._viewer.transformEnded.emit()
-        })
-        
-        // re-render when transforming an object
-        this._controls.addEventListener('change', () => {
-            this._viewer.onRender.emit({
-                source: SceneManager.name,
-                type: `${RENDER_TYPES.TRANSFORMATION}`
-            })
-        })
-        
-        // update the controls when rendering (scaling)
-        this._viewer.onRender.connect(() => {
-            this._controls.update()
-        })
-        
-        // add the controls to the scene so they can be interacted with
-        this._sceneRootNode.add(this._controls)
     }
     
     private _onMouseDown (event: MouseEvent) {
@@ -384,22 +304,5 @@ export class SceneManager {
         
         // check if the given node is intersected by that line
         return this._raycaster.intersectObject(node, true)
-    }
-    
-    private _setTransformControlsForNode (node?) {
-        
-        // if node is not given, detach the controls from everything
-        if (!node) {
-            this._controls.detach()
-            return
-        }
-        
-        // prevent attaching controls to non-mesh node
-        if (node.type !== NODE_TYPES.MESH) {
-            return
-        }
-        
-        // attach the controls to the target node
-        this._controls.attach(node)
     }
 }

@@ -11,6 +11,7 @@ amjs.onReady.connect(() => {
 
 amjs.onMeshLoaded.connect(({ node }) => {
     console.log('mesh loaded', node)
+    amjs.selectMesh(node)
 })
 
 amjs.onMeshError.connect(({ error }) => {
@@ -18,5 +19,5 @@ amjs.onMeshError.connect(({ error }) => {
 })
 
 amjs.init()
-amjs.loadStlFile(fish)
+// amjs.loadStlFile(fish)
 amjs.loadStlFile(benchy)

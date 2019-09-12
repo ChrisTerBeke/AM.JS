@@ -1,3 +1,4 @@
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls'
 import Signal from '../../helpers/Signal'
 import StlImporter from '../files/StlImporter'
 import INode from './NodeInterface'
@@ -36,6 +37,10 @@ class NodeManager {
 
     public addLight(light: THREE.Light): void {
         this._rootNode.addLight(light)
+    }
+
+    public addControls(controls: TransformControls): void {
+        this._rootNode.addControls(controls)
     }
 
     public addNode(node: INode): void {

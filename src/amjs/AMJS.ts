@@ -2,7 +2,6 @@ import * as THREE from 'three'
 import generateUUID from '../helpers/generateUUID'
 import Signal from '../helpers/Signal'
 import CameraManager from './camera/CameraManager'
-import CIonfig from './Config'
 import ControlsManager from './controls/ControlsManager'
 import LightFactory from './lighting/LightFactory'
 import INode from './nodes/NodeInterface'
@@ -21,11 +20,6 @@ class AMJS {
 
     // unique generated ID for this instance of am.js.
     private _UUID: string = generateUUID()
-
-    // application config
-    private _config: CIonfig = {
-        debug: true,
-    }
 
     // HTML canvas element to bind this instance to.
     private _canvas: HTMLCanvasElement
@@ -47,10 +41,6 @@ class AMJS {
         this._loadLighting()
         this._render()
         this.onReady.emit({ success: true })
-    }
-
-    public getConfig(): CIonfig {
-        return this._config
     }
 
     public getUUID(): string {
@@ -79,6 +69,10 @@ class AMJS {
         this._nodeManager.loadStlFile(filename)
     }
 
+    public selectMesh(mesh: INode): void {
+        this._controlsManager.initControlsForNode(mesh)
+    }
+
     private _loadNodeManager(): void {
         this._nodeManager = new NodeManager()
         this._nodeManager.onMeshAdded.connect((data) => this._onMeshLoaded(data))
@@ -100,6 +94,8 @@ class AMJS {
         this._controlsManager = new ControlsManager(this._canvas)
         this._controlsManager.initControlsForCamera(this._cameraManager.getCamera())
         this._controlsManager.onCameraControlsChanged.connect(() => this._render())
+        this._controlsManager.onTransformControlsChanged.connect(() => this._render())
+        this._nodeManager.addControls(this._controlsManager.getTransformControls())
     }
 
     private _loadLighting(): void {

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { TransformControls } from 'three/examples/jsm/controls/TransformControls'
 import INode from './NodeInterface'
 
 /**
@@ -17,6 +18,10 @@ class RootNode extends THREE.Object3D {
 
     public addCamera(camera: THREE.Camera): void {
         this._scene.add(camera)
+    }
+
+    public addControls(controls: TransformControls): void {
+        this._scene.add(controls)
     }
 
     public addLight(light: THREE.Light): void {

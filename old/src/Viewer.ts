@@ -39,8 +39,6 @@ export class Viewer {
     // signals used for event based triggering
     public onRender: Signal<RenderOptions> = new Signal()
     public onReady: Signal<any> = new Signal()
-    public transformStarted: Signal<any> = new Signal()
-    public transformEnded: Signal<any> = new Signal()
     public cameraCreated: Signal<THREE.Camera> = new Signal()
     public nodeSelected: Signal<THREE.Object3D> = new Signal()
     public nodeDeselected: Signal<THREE.Object3D> = new Signal()
