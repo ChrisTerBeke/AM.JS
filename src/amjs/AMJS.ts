@@ -3,10 +3,10 @@ import generateUUID from '../helpers/generateUUID'
 import Signal from '../helpers/Signal'
 import CameraManager from './camera/CameraManager'
 import CIonfig from './Config'
+import ControlsManager from './controls/ControlsManager'
 import LightFactory from './lighting/LightFactory'
 import INode from './nodes/NodeInterface'
 import NodeManager from './nodes/NodeManager'
-import ControlsManager from './controls/ControlsManager'
 
 /**
  * The main class that kick-starts an instance of am.js.
@@ -63,10 +63,7 @@ class AMJS {
 
     public setCanvas(canvas: HTMLCanvasElement): void {
         this._canvas = canvas
-        this._renderer = new THREE.WebGLRenderer({
-            alpha: true,
-            canvas: this._canvas,
-        })
+        this._renderer = new THREE.WebGLRenderer({ alpha: true, canvas: this._canvas })
         this._renderer.shadowMap.enabled = true
         this._renderer.shadowMap.type = THREE.PCFSoftShadowMap
         this._renderer.setPixelRatio(window.devicePixelRatio ? window.devicePixelRatio : 1)
@@ -84,12 +81,14 @@ class AMJS {
 
     private _loadNodeManager(): void {
         this._nodeManager = new NodeManager()
-        this._nodeManager.onMeshAdded.connect((data) => {
-            this._render()
-            this.onMeshLoaded.emit(data)
-        })
+        this._nodeManager.onMeshAdded.connect((data) => this._onMeshLoaded(data))
         this._nodeManager.onMeshError.connect((data) => this.onMeshError.emit(data))
         this._nodeManager.onMeshProgress.connect((data) => this.onMeshProgress.emit(data))
+    }
+
+    private _onMeshLoaded(data: {node: INode}): void {
+        this._render()
+        this.onMeshLoaded.emit(data)
     }
 
     private _loadCameraManager(): void {
@@ -100,8 +99,7 @@ class AMJS {
     private _loadControlsManager(): void {
         this._controlsManager = new ControlsManager(this._canvas)
         this._controlsManager.initControlsForCamera(this._cameraManager.getCamera())
-        this._controlsManager.onCameraControlsChanged.connect(this._render.bind(this))
-        // TODO: update controls when camera changes
+        this._controlsManager.onCameraControlsChanged.connect(() => this._render())
     }
 
     private _loadLighting(): void {
