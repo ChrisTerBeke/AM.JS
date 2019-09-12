@@ -28,12 +28,8 @@ class ControlsManager {
     }
 
     public initControlsForCamera(camera: THREE.Camera): void {
-        this._cameraControls = new OrbitControls(camera, this._canvas)
-        this._cameraControls.addEventListener('change', () => this.onCameraControlsChanged.emit())
-        this._transformControls = new TransformControls(camera, this._canvas)
-        this._transformControls.addEventListener('change', () => this.onTransformControlsChanged.emit())
-        this._transformControls.addEventListener('mouseDown', () => this.enableTransformControls())
-        this._transformControls.addEventListener('mouseUp', () => this.disableTransformControls())
+        this._initCameraControls(camera)
+        this._initTransformControls(camera)
     }
 
     public initControlsForNode(node?: INode): void {
@@ -70,6 +66,19 @@ class ControlsManager {
 
     public setCameraControlsTarget(target: THREE.Vector3): void {
         this._cameraControls.target.set(target.x, target.y, target.z)
+    }
+
+    private _initCameraControls(camera: THREE.Camera): void {
+        this._cameraControls = new OrbitControls(camera, this._canvas)
+        this._cameraControls.addEventListener('change', () => this.onCameraControlsChanged.emit())
+    }
+
+    private _initTransformControls(camera: THREE.Camera): void {
+        this._transformControls = new TransformControls(camera, this._canvas)
+        this._transformControls.setSize(2)
+        this._transformControls.addEventListener('change', () => this.onTransformControlsChanged.emit())
+        this._transformControls.addEventListener('mouseDown', () => this.enableTransformControls())
+        this._transformControls.addEventListener('mouseUp', () => this.disableTransformControls())
     }
 }
 
