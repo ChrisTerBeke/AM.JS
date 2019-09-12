@@ -1,17 +1,17 @@
 import * as THREE from 'three'
 import generateUUID from '../helpers/generateUUID'
 import Signal from '../helpers/Signal'
-import IAMJSInterface from './AMJSInterface'
 import CameraManager from './camera/CameraManager'
 import CIonfig from './Config'
 import LightFactory from './lighting/LightFactory'
 import INode from './nodes/NodeInterface'
 import NodeManager from './nodes/NodeManager'
+import ControlsManager from './controls/ControlsManager'
 
 /**
  * The main class that kick-starts an instance of am.js.
  */
-class AMJS implements IAMJSInterface {
+class AMJS {
 
     // signals
     public onReady: Signal<{}> = new Signal()
@@ -34,6 +34,7 @@ class AMJS implements IAMJSInterface {
     // managers
     private _cameraManager: CameraManager
     private _nodeManager: NodeManager
+    private _controlsManager: ControlsManager
 
     constructor(canvas: HTMLCanvasElement) {
         this.setCanvas(canvas)
@@ -42,7 +43,9 @@ class AMJS implements IAMJSInterface {
     public init(): void {
         this._loadNodeManager()
         this._loadCameraManager()
+        this._loadControlsManager()
         this._loadLighting()
+        this._render()
         this.onReady.emit({ success: true })
     }
 
@@ -92,7 +95,13 @@ class AMJS implements IAMJSInterface {
     private _loadCameraManager(): void {
         this._cameraManager = new CameraManager(this._canvas)
         this._nodeManager.addCamera(this._cameraManager.getCamera())
-        this._render()
+    }
+
+    private _loadControlsManager(): void {
+        this._controlsManager = new ControlsManager(this._canvas)
+        this._controlsManager.initControlsForCamera(this._cameraManager.getCamera())
+        this._controlsManager.onCameraControlsChanged.connect(this._render.bind(this))
+        // TODO: update controls when camera changes
     }
 
     private _loadLighting(): void {

@@ -19,7 +19,7 @@ class MeshNode extends BaseNode {
     }
 
     public render(): void {
-        console.log('render mesh node')
+        // TODO
     }
 }
 
