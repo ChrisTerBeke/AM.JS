@@ -10,6 +10,14 @@ export enum CAMERA_TYPES {
 }
 
 /**
+ * Map of camera types to factory functions.
+ */
+const cameraTypeToFactoryMap: {[type: string]: (canvas: HTMLCanvasElement) => THREE.Camera} = {
+    [CAMERA_TYPES.ORTHOGRAPHIC]: CameraFactory.createOrthographicCamera,
+    [CAMERA_TYPES.PERSPECTIVE]: CameraFactory.createPerspectiveCamera,
+}
+
+/**
  * Manages the active camera in the application.
  */
 class CameraManager {
@@ -20,8 +28,7 @@ class CameraManager {
 	constructor(canvas: HTMLCanvasElement, type: CAMERA_TYPES = CAMERA_TYPES.PERSPECTIVE) {
         this._canvas = canvas
         this.setCameraType(type)
-        this.setCameraPosition(new THREE.Vector3(50, 50, 50))
-        this.lookAt(new THREE.Vector3(0, 0, 0))
+        this.setCameraPosition(new THREE.Vector3(300, 300, 300))
 	}
 
 	public getCamera(): THREE.Camera {
@@ -29,14 +36,6 @@ class CameraManager {
 	}
 
 	public setCameraType(type: CAMERA_TYPES) {
-
-		// maps camera type to camera object creation method
-		const cameraTypeToFactoryMap: {[type: string]: (canvas: HTMLCanvasElement) => THREE.Camera} = {
-			[CAMERA_TYPES.ORTHOGRAPHIC]: CameraFactory.createOrthographicCamera,
-			[CAMERA_TYPES.PERSPECTIVE]: CameraFactory.createPerspectiveCamera,
-		}
-
-		// create the camera and target it at the canvas
 		this._camera = cameraTypeToFactoryMap[type](this._canvas)
 		this._camera.up.set(0, 0, 1)
     }

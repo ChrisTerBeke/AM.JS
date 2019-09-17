@@ -4,6 +4,7 @@ import Signal from '../helpers/Signal'
 import CameraManager from './camera/CameraManager'
 import ControlsManager from './controls/ControlsManager'
 import LightFactory from './lighting/LightFactory'
+import BuildVolume from './nodes/BuildVolume'
 import INode from './nodes/NodeInterface'
 import NodeManager from './nodes/NodeManager'
 
@@ -39,6 +40,7 @@ class AMJS {
         this._loadCameraManager()
         this._loadControlsManager()
         this._loadLighting()
+        this._loadBuildVolume()
         this._render()
         this.onReady.emit({ success: true })
     }
@@ -78,6 +80,14 @@ class AMJS {
         this._nodeManager.onMeshAdded.connect((data) => this._onMeshLoaded(data))
         this._nodeManager.onMeshError.connect((data) => this.onMeshError.emit(data))
         this._nodeManager.onMeshProgress.connect((data) => this.onMeshProgress.emit(data))
+    }
+
+    private _loadBuildVolume(): void {
+        const buildVolume = new BuildVolume(200, 200, 200)
+        this._nodeManager.addNode(buildVolume)
+        const centerPoint = buildVolume.getCenter()
+        this._cameraManager.lookAt(centerPoint)
+        this._controlsManager.setCameraControlsTarget(centerPoint)
     }
 
     private _onMeshLoaded(data: {node: INode}): void {
