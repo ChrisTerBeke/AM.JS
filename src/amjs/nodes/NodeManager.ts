@@ -1,8 +1,9 @@
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls'
 import Signal from '../../helpers/Signal'
 import StlImporter from '../files/StlImporter'
-import INode from './NodeInterface'
+import INode, { NODE_TYPES } from './NodeInterface'
 import RootNode from './RootNode'
+import BuildVolume from './BuildVolume'
 
 /**
  * Class responsible for orchestrating all nodes in the scene.
@@ -20,6 +21,7 @@ class NodeManager {
 
     // scene
     private _rootNode: RootNode = new RootNode()
+    private _buildVolumeNode: BuildVolume = null
 
     constructor() {
         this._stlImporter.onMeshImported.connect(this._meshImported.bind(this))
@@ -53,6 +55,16 @@ class NodeManager {
         this.onMeshRemoved.emit()
     }
 
+    public getBuildVolume(): BuildVolume {
+        return this._buildVolumeNode
+    }
+
+    public setBuildVolume(buildVolume: BuildVolume): void {
+        this._buildVolumeNode = buildVolume
+        this._rootNode.addChild(buildVolume)
+        this.detectMeshOutOfBuildVolume()
+    }
+
     public render(): void {
         this._rootNode.render()
     }
@@ -63,6 +75,15 @@ class NodeManager {
 
     private _meshImported(data: { node: INode }): void {
         this.addNode(data.node)
+    }
+
+    public detectMeshOutOfBuildVolume(): void {
+        for (const node of this._rootNode.getMeshChildren()) {
+            if (!node.isInBuildVolume(this._buildVolumeNode)) {
+                console.log('not in build volume!')
+                // TODO: change color of mesh
+            }
+        }
     }
 }
 

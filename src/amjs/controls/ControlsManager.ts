@@ -18,6 +18,7 @@ class ControlsManager {
 
     public onCameraControlsChanged: Signal<void> = new Signal()
     public onTransformControlsChanged: Signal<void> = new Signal()
+    public onSelectedNodeTransformed: Signal<void> = new Signal()
 
     private _canvas: HTMLCanvasElement
     private _cameraControls: OrbitControls
@@ -79,6 +80,7 @@ class ControlsManager {
         this._transformControls.addEventListener('change', () => this.onTransformControlsChanged.emit())
         this._transformControls.addEventListener('mouseDown', () => this.enableTransformControls())
         this._transformControls.addEventListener('mouseUp', () => this.disableTransformControls())
+        this._transformControls.addEventListener('objectChange', () => {this.onSelectedNodeTransformed.emit()})
     }
 }
 

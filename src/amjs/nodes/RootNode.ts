@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls'
-import INode from './NodeInterface'
+import INode, { NODE_TYPES } from './NodeInterface'
+import MeshNode from './MeshNode'
 
 /**
  * The root node contains the scene and all objects in it.
@@ -38,6 +39,13 @@ class RootNode extends THREE.Object3D {
 
     public getChildren(): INode[] {
         return this._scene.children as INode[]
+    }
+
+    public getMeshChildren(): MeshNode[] {
+        return this._scene.children.filter((child: INode) => {
+            // TODO: this is ugly, maybe userData should be used instead of a custom node tree.
+            return typeof(child.getType) === 'function' && child.getType() === NODE_TYPES.MESH
+        }) as MeshNode[]
     }
 
     public render(): void {

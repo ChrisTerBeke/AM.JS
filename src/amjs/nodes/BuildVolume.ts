@@ -9,7 +9,7 @@ class BuildVolume extends BaseNode {
     private _depth: number
 
     constructor(width: number, height: number,  depth: number) {
-        super(NODE_TYPES.MESH, new THREE.BoxBufferGeometry(1, 1, 1))
+        super(NODE_TYPES.BUILD_VOLUME, new THREE.BoxBufferGeometry(1, 1, 1))
 
         // defaults
         this.castShadow = false
@@ -39,13 +39,6 @@ class BuildVolume extends BaseNode {
 
     public render(): void {
         // todo
-    }
-
-    public getBoundingBox(): THREE.Box3 {
-        return new THREE.Box3(
-            this.geometry.boundingBox.min.multiply(this.scale).add(this.position),
-            this.geometry.boundingBox.max.multiply(this.scale).add(this.position),
-        )
     }
 
     public getCenter(): THREE.Vector3 {
