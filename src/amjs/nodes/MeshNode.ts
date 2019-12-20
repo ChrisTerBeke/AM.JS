@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import BaseNode from './BaseNode'
 import { NODE_TYPES } from './NodeInterface'
+import BuildVolume from './BuildVolume'
 
 class MeshNode extends BaseNode {
 
@@ -8,6 +9,7 @@ class MeshNode extends BaseNode {
         super(NODE_TYPES.MESH, geometry)
 
         // material
+        // TODO: store default base material apart from this.material property
         this.material = new THREE.MeshPhongMaterial({
             color: new THREE.Color(.5, .5, .5),
             shininess: 50,
@@ -20,6 +22,13 @@ class MeshNode extends BaseNode {
 
     public render(): void {
         // TODO
+    }
+
+    public isInBuildVolume(buildVolume: BuildVolume): boolean {
+        if (this.getBoundingBox().intersectsBox(buildVolume.getBoundingBox())) {
+            return true
+        }
+        return false
     }
 }
 

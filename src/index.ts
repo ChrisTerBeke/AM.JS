@@ -10,11 +10,15 @@ amjs.onReady.connect(() => {
 
 amjs.onMeshLoaded.connect(({ node }) => {
     console.log('mesh loaded', node)
-    amjs.selectMesh(node)
+    amjs.selectMesh(node) // remove this when object selection in the UI works
 })
 
 amjs.onMeshError.connect(({ error }) => {
     console.log('mesh loading error', error)
+})
+
+amjs.onMeshProgress.connect(({ progress }) => {
+    console.log('mesh loading progress', progress)
 })
 
 amjs.init()

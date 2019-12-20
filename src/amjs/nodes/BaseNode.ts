@@ -17,6 +17,7 @@ class BaseNode extends THREE.Mesh implements INode {
         geometry: THREE.Geometry | THREE.BufferGeometry = new THREE.BufferGeometry(),
     ) {
         super(geometry)
+        this.geometry.computeBoundingBox()
         this._type = type
     }
 
@@ -46,6 +47,14 @@ class BaseNode extends THREE.Mesh implements INode {
 
     public render(): void {
         throw new Error('Method not implemented.')
+    }
+
+    public getBoundingBox(): THREE.Box3 {
+        this.geometry.computeBoundingBox()
+        return new THREE.Box3(
+            this.geometry.boundingBox.min.multiply(this.scale).add(this.position),
+            this.geometry.boundingBox.max.multiply(this.scale).add(this.position),
+        )
     }
 }
 

@@ -83,8 +83,8 @@ class AMJS {
     }
 
     private _loadBuildVolume(): void {
-        const buildVolume = new BuildVolume(200, 200, 200)
-        this._nodeManager.addNode(buildVolume)
+        const buildVolume = new BuildVolume(200, 200, 200) // TODO: not hardcode this
+        this._nodeManager.setBuildVolume(buildVolume)
         const centerPoint = buildVolume.getCenter()
         this._cameraManager.lookAt(centerPoint)
         this._controlsManager.setCameraControlsTarget(centerPoint)
@@ -105,6 +105,7 @@ class AMJS {
         this._controlsManager.initControlsForCamera(this._cameraManager.getCamera())
         this._controlsManager.onCameraControlsChanged.connect(() => this._render())
         this._controlsManager.onTransformControlsChanged.connect(() => this._render())
+        this._controlsManager.onSelectedNodeTransformed.connect(() => this._nodeManager.detectMeshOutOfBuildVolume())
         this._nodeManager.addControls(this._controlsManager.getTransformControls())
     }
 
