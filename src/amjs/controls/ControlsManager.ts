@@ -80,7 +80,7 @@ class ControlsManager {
         this._transformControls.addEventListener('change', () => this.onTransformControlsChanged.emit())
         this._transformControls.addEventListener('mouseDown', () => this.enableTransformControls())
         this._transformControls.addEventListener('mouseUp', () => this.disableTransformControls())
-        this._transformControls.addEventListener('objectChange', () => {this.onSelectedNodeTransformed.emit()})
+        this._transformControls.addEventListener('objectChange', () => this.onSelectedNodeTransformed.emit())
     }
 }
 

@@ -1,9 +1,10 @@
+import * as THREE from 'three'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls'
 import Signal from '../../helpers/Signal'
 import StlImporter from '../files/StlImporter'
-import INode, { NODE_TYPES } from './NodeInterface'
-import RootNode from './RootNode'
 import BuildVolume from './BuildVolume'
+import INode from './NodeInterface'
+import RootNode from './RootNode'
 
 /**
  * Class responsible for orchestrating all nodes in the scene.
@@ -73,17 +74,21 @@ class NodeManager {
         this._stlImporter.load(filename)
     }
 
-    private _meshImported(data: { node: INode }): void {
-        this.addNode(data.node)
-    }
-
     public detectMeshOutOfBuildVolume(): void {
         for (const node of this._rootNode.getMeshChildren()) {
             if (!node.isInBuildVolume(this._buildVolumeNode)) {
-                console.log('not in build volume!')
-                // TODO: change color of mesh
+                node.setMaterial(new THREE.MeshPhongMaterial({
+                    color: new THREE.Color(1, .25, .25),
+                    shininess: 25,
+                }))
+            } else {
+                node.resetMaterial()
             }
         }
+    }
+
+    private _meshImported(data: { node: INode }): void {
+        this.addNode(data.node)
     }
 }
 
