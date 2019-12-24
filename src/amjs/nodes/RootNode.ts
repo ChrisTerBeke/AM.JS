@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls'
-import INode, { NODE_TYPES } from './NodeInterface'
 import MeshNode from './MeshNode'
+import INode, { NODE_TYPES } from './NodeInterface'
 
 /**
  * The root node contains the scene and all objects in it.
