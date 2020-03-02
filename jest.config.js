@@ -8,5 +8,7 @@ module.exports = {
             statements: 100
         },
     },
-    preset: 'ts-jest'
-};
+    preset: 'ts-jest',
+    setupFiles: ['jest-canvas-mock'],
+    testEnvironment: 'jest-environment-jsdom-fourteen'
+}
