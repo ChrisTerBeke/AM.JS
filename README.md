@@ -1,4 +1,6 @@
 # AM.JS
+![CI](https://github.com/ChrisTerBeke/AM.JS/workflows/CI/badge.svg)
+
 A fast and fully-featured previewing library for 3D printing.
 
 ## Introduction
