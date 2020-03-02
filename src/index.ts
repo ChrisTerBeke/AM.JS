@@ -2,7 +2,10 @@ import benchy from './3DBenchy.stl'
 import AMJS from './amjs/AMJS'
 
 const canvas: HTMLCanvasElement = document.getElementById('canvas') as HTMLCanvasElement
-const amjs = new AMJS(canvas)
+const amjs = new AMJS(canvas, {
+    buildVolumeConfig: { x: 230, y: 210, z: 220 },
+    detectMeshOutOfBuildVolume: true,
+})
 
 amjs.onReady.connect(() => {
 	console.log('init')

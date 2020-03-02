@@ -8,6 +8,15 @@ import BuildVolume from './nodes/BuildVolume'
 import INode from './nodes/NodeInterface'
 import NodeManager from './nodes/NodeManager'
 
+interface IAMJSConfig {
+    buildVolumeConfig?: {
+        x: number,
+        y: number,
+        z: number,
+    },
+    detectMeshOutOfBuildVolume?: boolean,
+}
+
 /**
  * The main class that kick-starts an instance of am.js.
  */
@@ -22,6 +31,9 @@ class AMJS {
     // unique generated ID for this instance of am.js.
     private _UUID: string = generateUUID()
 
+    // config
+    private _config: IAMJSConfig
+
     // HTML canvas element to bind this instance to.
     private _canvas: HTMLCanvasElement
     private _renderer: THREE.WebGLRenderer
@@ -31,8 +43,9 @@ class AMJS {
     private _nodeManager: NodeManager
     private _controlsManager: ControlsManager
 
-    constructor(canvas: HTMLCanvasElement) {
+    constructor(canvas: HTMLCanvasElement, config?: IAMJSConfig) {
         this.setCanvas(canvas)
+        this.setConfig(config)
     }
 
     public init(): void {
@@ -41,6 +54,7 @@ class AMJS {
         this._loadControlsManager()
         this._loadLighting()
         this._loadBuildVolume()
+        this._loadBehaviour()
         this._render()
         this.onReady.emit({ success: true })
     }
@@ -51,6 +65,12 @@ class AMJS {
 
     public getCanvas(): HTMLCanvasElement {
         return this._canvas
+    }
+
+    public setConfig(config?: IAMJSConfig) {
+        if (config) {
+            this._config = config
+        }
     }
 
     public setCanvas(canvas: HTMLCanvasElement): void {
@@ -83,7 +103,8 @@ class AMJS {
     }
 
     private _loadBuildVolume(): void {
-        const buildVolume = new BuildVolume(200, 200, 200) // TODO: not hardcode this
+        const buildVolume = new BuildVolume(this._config && this._config.buildVolumeConfig
+            ? this._config.buildVolumeConfig : { x: 200, y: 200, z: 200 })
         this._nodeManager.setBuildVolume(buildVolume)
         const centerPoint = buildVolume.getCenter()
         this._cameraManager.lookAt(centerPoint)
@@ -105,7 +126,6 @@ class AMJS {
         this._controlsManager.initControlsForCamera(this._cameraManager.getCamera())
         this._controlsManager.onCameraControlsChanged.connect(() => this._render())
         this._controlsManager.onTransformControlsChanged.connect(() => this._render())
-        this._controlsManager.onSelectedNodeTransformed.connect(() => this._nodeManager.detectMeshOutOfBuildVolume())
         this._nodeManager.addControls(this._controlsManager.getTransformControls())
     }
 
@@ -118,6 +138,13 @@ class AMJS {
     private _render(): void {
         this._nodeManager.render()
         this._renderer.render(this._nodeManager.getScene(), this._cameraManager.getCamera())
+    }
+
+    private _loadBehaviour(): void {
+        if (this._config && this._config.detectMeshOutOfBuildVolume) {
+            this._controlsManager.onSelectedNodeTransformed.connect(
+                () => this._nodeManager.detectMeshOutOfBuildVolume())
+        }
     }
 }
 
