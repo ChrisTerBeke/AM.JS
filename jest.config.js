@@ -8,7 +8,7 @@ module.exports = {
     //         statements: 100
     //     },
     // },
-    setupFiles: ['jest-canvas-mock'],
-    testEnvironment: 'jest-environment-jsdom-fourteen',
-    transformIgnorePatterns: []
-}
+    setupFiles: ["jest-canvas-mock"],
+    testEnvironment: "jest-environment-jsdom-fourteen",
+    transformIgnorePatterns: [],
+};
