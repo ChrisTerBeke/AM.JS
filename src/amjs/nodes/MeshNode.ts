@@ -1,18 +1,23 @@
-import * as THREE from 'three'
+import {
+    BufferGeometry,
+    Geometry,
+    Material,
+    MeshPhongMaterial,
+} from 'three'
 import BaseNode from './BaseNode'
 import BuildVolume from './BuildVolume'
 import { NODE_TYPES } from './NodeInterface'
 
 class MeshNode extends BaseNode {
 
-    public defaultMaterial: THREE.MeshPhongMaterial
+    public defaultMaterial: MeshPhongMaterial
 
-    constructor(geometry: THREE.Geometry | THREE.BufferGeometry) {
+    constructor(geometry: Geometry | BufferGeometry) {
         super(NODE_TYPES.MESH, geometry)
 
         // material
-        this.defaultMaterial = new THREE.MeshPhongMaterial({
-            color: new THREE.Color(.5, .5, .5),
+        this.defaultMaterial = new MeshPhongMaterial({
+            color: new Color(.5, .5, .5),
             shininess: 50,
         })
         this.material = this.defaultMaterial
@@ -30,7 +35,7 @@ class MeshNode extends BaseNode {
         return buildVolume.getBoundingBox().containsBox(this.getBoundingBox())
     }
 
-    public setMaterial(material: THREE.Material): void {
+    public setMaterial(material: Material): void {
         this.material = material
     }
 

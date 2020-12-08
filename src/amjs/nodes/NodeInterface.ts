@@ -1,4 +1,6 @@
-// import { RenderOptions } from '../managers/RenderManager'
+import {
+    Object3D,
+} from 'three'
 
 /**
  * Enum of allowed node types.
@@ -15,7 +17,7 @@ export enum NODE_TYPES {
 /**
  * Shared interface for all node types.
  */
-interface INode extends THREE.Object3D {
+interface INode extends Object3D {
 
     /**
      * Get the unique ID of a node.

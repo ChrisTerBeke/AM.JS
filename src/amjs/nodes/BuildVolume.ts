@@ -1,4 +1,10 @@
-import * as THREE from 'three'
+import {
+    AxesHelper,
+    BackSide,
+    BoxBufferGeometry,
+    MeshBasicMaterial,
+    Vector3,
+} from 'three'
 import BaseNode from './BaseNode'
 import { NODE_TYPES } from './NodeInterface'
 
@@ -15,17 +21,17 @@ class BuildVolume extends BaseNode {
     private _depth: number
 
     constructor(config: IBuildVolumeConfig) {
-        super(NODE_TYPES.BUILD_VOLUME, new THREE.BoxBufferGeometry(1, 1, 1))
+        super(NODE_TYPES.BUILD_VOLUME, new BoxBufferGeometry(1, 1, 1))
 
         // defaults
         this.castShadow = false
         this.receiveShadow = false
 
         // material
-        this.material = new THREE.MeshBasicMaterial({
+        this.material = new MeshBasicMaterial({
             color: 0x46b1e6,
             opacity: 0.2,
-            side: THREE.BackSide,
+            side: BackSide,
             transparent: true,
         })
 
@@ -38,7 +44,7 @@ class BuildVolume extends BaseNode {
         this.geometry.computeBoundingBox()
 
         // axes helper
-        const zeroPoint = new THREE.AxesHelper(10)
+        const zeroPoint = new AxesHelper(10)
         zeroPoint.position.set(0, 0, 0)
         this.children.push(zeroPoint)
     }
@@ -47,8 +53,8 @@ class BuildVolume extends BaseNode {
         // todo
     }
 
-    public getCenter(): THREE.Vector3 {
-        return this.getBoundingBox().getCenter(new THREE.Vector3())
+    public getCenter(): Vector3 {
+        return this.getBoundingBox().getCenter(new Vector3())
     }
 }
 

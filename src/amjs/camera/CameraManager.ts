@@ -1,4 +1,7 @@
-import * as THREE from 'three'
+import {
+    Camera,
+    Vector3
+} from 'three'
 import CameraFactory from './CameraFactory'
 
 /**
@@ -12,7 +15,7 @@ export enum CAMERA_TYPES {
 /**
  * Map of camera types to factory functions.
  */
-const cameraTypeToFactoryMap: {[type: string]: (canvas: HTMLCanvasElement) => THREE.Camera} = {
+const cameraTypeToFactoryMap: {[type: string]: (canvas: HTMLCanvasElement) => Camera} = {
     [CAMERA_TYPES.ORTHOGRAPHIC]: CameraFactory.createOrthographicCamera,
     [CAMERA_TYPES.PERSPECTIVE]: CameraFactory.createPerspectiveCamera,
 }
@@ -23,15 +26,15 @@ const cameraTypeToFactoryMap: {[type: string]: (canvas: HTMLCanvasElement) => TH
 class CameraManager {
 
 	private _canvas: HTMLCanvasElement
-	private _camera: THREE.Camera
+	private _camera: Camera
 
 	constructor(canvas: HTMLCanvasElement, type: CAMERA_TYPES = CAMERA_TYPES.PERSPECTIVE) {
         this._canvas = canvas
         this.setCameraType(type)
-        this.setCameraPosition(new THREE.Vector3(300, 300, 300))
+        this.setCameraPosition(new Vector3(300, 300, 300))
 	}
 
-	public getCamera(): THREE.Camera {
+	public getCamera(): Camera {
 		return this._camera
 	}
 
@@ -40,11 +43,11 @@ class CameraManager {
 		this._camera.up.set(0, 0, 1)
     }
 
-    public setCameraPosition(position: THREE.Vector3): void {
+    public setCameraPosition(position: Vector3): void {
         this._camera.position.set(position.x, position.y, position.z)
     }
 
-    public lookAt(target: THREE.Vector3): void {
+    public lookAt(target: Vector3): void {
         this._camera.lookAt(target)
     }
 }

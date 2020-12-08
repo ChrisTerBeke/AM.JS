@@ -1,4 +1,7 @@
-import * as THREE from 'three'
+import {
+    PCFSoftShadowMap,
+    WebGLRenderer,
+} from 'three'
 import generateUUID from '../helpers/generateUUID'
 import Signal from '../helpers/Signal'
 import CameraManager from './camera/CameraManager'
@@ -36,7 +39,7 @@ class AMJS {
 
     // HTML canvas element to bind this instance to.
     private _canvas: HTMLCanvasElement
-    private _renderer: THREE.WebGLRenderer
+    private _renderer: WebGLRenderer
 
     // managers
     private _cameraManager: CameraManager
@@ -75,9 +78,9 @@ class AMJS {
 
     public setCanvas(canvas: HTMLCanvasElement): void {
         this._canvas = canvas
-        this._renderer = new THREE.WebGLRenderer({ alpha: true, canvas: this._canvas })
+        this._renderer = new WebGLRenderer({ alpha: true, canvas: this._canvas })
         this._renderer.shadowMap.enabled = true
-        this._renderer.shadowMap.type = THREE.PCFSoftShadowMap
+        this._renderer.shadowMap.type = PCFSoftShadowMap
         this._renderer.setPixelRatio(window.devicePixelRatio ? window.devicePixelRatio : 1)
         this._renderer.setSize(this._canvas.width, this._canvas.height)
         this._renderer.setClearColor(0xffffff)

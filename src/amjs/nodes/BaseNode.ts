@@ -1,10 +1,15 @@
-import * as THREE from 'three'
+import {
+    BufferGeometry,
+    Box3,
+    Geometry,
+    Mesh,
+} from 'three'
 import INode, { NODE_TYPES } from './NodeInterface'
 
-class BaseNode extends THREE.Mesh implements INode {
+class BaseNode extends Mesh implements INode {
 
     // override for typing
-    public geometry: THREE.Geometry | THREE.BufferGeometry
+    public geometry: Geometry | BufferGeometry
 
     // the type of node, can be used to hide/show certain types
     private _type: NODE_TYPES
@@ -14,7 +19,7 @@ class BaseNode extends THREE.Mesh implements INode {
 
     constructor(
         type: NODE_TYPES = NODE_TYPES.NONE,
-        geometry: THREE.Geometry | THREE.BufferGeometry = new THREE.BufferGeometry(),
+        geometry: Geometry | BufferGeometry = new BufferGeometry(),
     ) {
         super(geometry)
         this.geometry.computeBoundingBox()
@@ -49,9 +54,9 @@ class BaseNode extends THREE.Mesh implements INode {
         throw new Error('Method not implemented.')
     }
 
-    public getBoundingBox(): THREE.Box3 {
+    public getBoundingBox(): Box3 {
         this.geometry.computeBoundingBox()
-        return new THREE.Box3(
+        return new Box3(
             this.geometry.boundingBox.min.multiply(this.scale).add(this.position),
             this.geometry.boundingBox.max.multiply(this.scale).add(this.position),
         )

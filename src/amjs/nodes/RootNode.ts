@@ -1,7 +1,16 @@
-import * as THREE from 'three'
-import { TransformControls } from 'three/examples/jsm/controls/TransformControls'
+import {
+    Camera,
+    Light,
+    Object3D,
+    Scene
+} from 'three'
+import {
+    TransformControls,
+} from 'three/examples/jsm/controls/TransformControls'
 import MeshNode from './MeshNode'
-import INode, { NODE_TYPES } from './NodeInterface'
+import INode, {
+    NODE_TYPES,
+} from './NodeInterface'
 
 /**
  * The root node contains the scene and all objects in it.
@@ -9,15 +18,15 @@ import INode, { NODE_TYPES } from './NodeInterface'
  * @class RootNode
  * @extends {BaseNode}
  */
-class RootNode extends THREE.Object3D {
+class RootNode extends Object3D {
 
-    private _scene: THREE.Scene = new THREE.Scene()
+    private _scene: Scene = new Scene()
 
-    public getScene(): THREE.Scene {
+    public getScene(): Scene {
         return this._scene
     }
 
-    public addCamera(camera: THREE.Camera): void {
+    public addCamera(camera: Camera): void {
         this._scene.add(camera)
     }
 
@@ -25,7 +34,7 @@ class RootNode extends THREE.Object3D {
         this._scene.add(controls)
     }
 
-    public addLight(light: THREE.Light): void {
+    public addLight(light: Light): void {
         this._scene.add(light)
     }
 
@@ -44,14 +53,14 @@ class RootNode extends THREE.Object3D {
     public getMeshChildren(): MeshNode[] {
         return this._scene.children.filter((child: INode) => {
             // TODO: this is ugly, maybe userData should be used instead of a custom node tree.
-            return typeof(child.getType) === 'function' && child.getType() === NODE_TYPES.MESH
+            return typeof (child.getType) === 'function' && child.getType() === NODE_TYPES.MESH
         }) as MeshNode[]
     }
 
     public render(): void {
         for (const node of this.getChildren()) {
             // TODO: this is ugly, maybe userData should be used instead of a custom node tree.
-            if (typeof(node.render) === 'function') {
+            if (typeof (node.render) === 'function') {
                 node.render()
             }
         }

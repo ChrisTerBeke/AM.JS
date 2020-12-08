@@ -1,4 +1,10 @@
-import * as THREE from 'three'
+import {
+    Camera,
+    Color,
+    Light,
+    MeshPhongMaterial,
+    Scene,
+} from 'three'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls'
 import Signal from '../../helpers/Signal'
 import StlImporter from '../files/StlImporter'
@@ -30,15 +36,15 @@ class NodeManager {
         this._stlImporter.onMeshProgress.connect((data) => this.onMeshProgress.emit(data))
     }
 
-    public getScene(): THREE.Scene {
+    public getScene(): Scene {
         return this._rootNode.getScene()
     }
 
-    public addCamera(camera: THREE.Camera): void {
+    public addCamera(camera: Camera): void {
         this._rootNode.addCamera(camera)
     }
 
-    public addLight(light: THREE.Light): void {
+    public addLight(light: Light): void {
         this._rootNode.addLight(light)
     }
 
@@ -77,8 +83,8 @@ class NodeManager {
     public detectMeshOutOfBuildVolume(): void {
         for (const node of this._rootNode.getMeshChildren()) {
             if (!node.isInBuildVolume(this._buildVolumeNode)) {
-                node.setMaterial(new THREE.MeshPhongMaterial({
-                    color: new THREE.Color(1, .25, .25),
+                node.setMaterial(new MeshPhongMaterial({
+                    color: new Color(1, .25, .25),
                     shininess: 25,
                 }))
             } else {
