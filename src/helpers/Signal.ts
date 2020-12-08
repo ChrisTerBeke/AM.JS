@@ -12,8 +12,8 @@ export interface ISignalInterface<T> {
  */
 class Signal<T> implements ISignalInterface<T> {
 
-	// registered callback handlers
-    private _handlers: Array<(data?: T) => void> = []
+    // registered callback handlers
+    private _handlers: ((data?: T) => void)[] = []
 
 	/**
 	 * Connect a callback method to fire when the event occurs.
