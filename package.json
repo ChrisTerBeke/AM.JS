@@ -15,8 +15,7 @@
 		"test:lint": "tslint --project ."
 	},
 	"dependencies": {
-		"three": "^0.123.0",
-		"three-stl-loader": "^1.0.6"
+		"three": "^0.123.0"
 	},
 	"devDependencies": {
 		"@babel/compat-data": "^7.12.7",
