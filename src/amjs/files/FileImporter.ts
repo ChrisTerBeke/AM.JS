@@ -1,3 +1,4 @@
+import { Geometry } from 'three'
 import Signal from '../../helpers/Signal'
 import MeshNode from '../nodes/MeshNode'
 import INode from '../nodes/NodeInterface'
@@ -24,7 +25,7 @@ class FileImporter {
         this._loader.load(filename, this._load.bind(this), this._progress.bind(this), this._error.bind(this))
     }
 
-    protected _load(geometry): void {
+    protected _load(geometry: Geometry): void {
         const node = new MeshNode(geometry)
         this.onMeshImported.emit({ node })
     }
