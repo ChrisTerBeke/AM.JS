@@ -76,8 +76,8 @@ class NodeManager {
         this._rootNode.render()
     }
 
-    public loadStlFile(filename: string): void {
-        this._stlImporter.load(filename)
+    public loadStlFile(url: string): void {
+        this._stlImporter.load(url)
     }
 
     public detectMeshOutOfBuildVolume(): void {

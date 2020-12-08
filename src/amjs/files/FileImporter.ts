@@ -21,8 +21,8 @@ class FileImporter {
         this._loader = loader
     }
 
-    public load(filename: string): void {
-        this._loader.load(filename, this._load.bind(this), this._progress.bind(this), this._error.bind(this))
+    public load(url: string): void {
+        this._loader.load(url, this._load.bind(this), this._progress.bind(this), this._error.bind(this))
     }
 
     protected _load(geometry: Geometry): void {

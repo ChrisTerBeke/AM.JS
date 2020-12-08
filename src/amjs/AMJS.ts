@@ -90,8 +90,8 @@ class AMJS {
         this._nodeManager.addNode(mesh)
     }
 
-    public loadStlFile(filename: string): void {
-        this._nodeManager.loadStlFile(filename)
+    public loadStlFile(url: string): void {
+        this._nodeManager.loadStlFile(url)
     }
 
     public selectMesh(mesh: INode): void {

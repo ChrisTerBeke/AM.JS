@@ -9,6 +9,10 @@ module.exports = {
     //     },
     // },
     setupFiles: ["jest-canvas-mock"],
-    testEnvironment: "jest-environment-jsdom-fourteen",
+    testEnvironment: "jsdom",
     transformIgnorePatterns: [],
-};
+    transform: {
+        "^.+\\.stl$": "<rootDir>/src/jest-stl-transformer.js",
+        "^.+\\.[t|j]sx?$": "babel-jest"
+    },
+}
