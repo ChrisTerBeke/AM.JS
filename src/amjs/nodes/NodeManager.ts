@@ -62,7 +62,7 @@ class NodeManager {
         this.onMeshRemoved.emit()
     }
 
-    public getBuildVolume(): BuildVolume {
+    public getBuildVolume(): BuildVolume | null {
         return this._buildVolumeNode
     }
 
