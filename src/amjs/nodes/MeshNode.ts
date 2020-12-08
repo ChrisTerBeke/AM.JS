@@ -1,5 +1,6 @@
 import {
     BufferGeometry,
+    Color,
     Geometry,
     Material,
     MeshPhongMaterial,
