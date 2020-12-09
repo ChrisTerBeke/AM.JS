@@ -36,15 +36,19 @@ class ControlsManager {
         this._initTransformControls(camera)
     }
 
-    public initControlsForNode(node?: INode): void {
-        if (!node) {
-            this._transformControls.detach()
+    public initControlsForNode(node: INode): void {
+        if (this._transformControls.object == node) {
             return
         }
         if (node.getType() !== NODE_TYPES.MESH) {
             return
         }
         this._transformControls.attach(node)
+        this.onTransformControlsChanged.emit()
+    }
+
+    public detachControls(): void {
+        this._transformControls.detach()
         this.onTransformControlsChanged.emit()
     }
 

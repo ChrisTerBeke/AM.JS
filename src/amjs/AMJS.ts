@@ -1,4 +1,5 @@
 import {
+    Camera,
     Color,
     MeshPhongMaterial,
     PCFSoftShadowMap,
@@ -73,6 +74,14 @@ class AMJS {
         return this._canvas
     }
 
+    public getRenderer(): WebGLRenderer {
+        return this._renderer
+    }
+
+    public getCamera(): Camera {
+        return this._cameraManager.getCamera()
+    }
+
     public setConfig(config?: IAMJSConfig) {
         if (config) {
             this._config = config
@@ -99,6 +108,14 @@ class AMJS {
 
     public selectMesh(mesh: INode): void {
         this._controlsManager.initControlsForNode(mesh)
+    }
+
+    public deselectMesh(): void {
+        this._controlsManager.detachControls()
+    }
+
+    public getMeshes(): MeshNode[] {
+        return this._nodeManager.getMeshChildren()
     }
 
     private _loadNodeManager(): void {
