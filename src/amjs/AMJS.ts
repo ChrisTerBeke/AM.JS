@@ -1,4 +1,6 @@
 import {
+    Color,
+    MeshPhongMaterial,
     PCFSoftShadowMap,
     WebGLRenderer,
 } from 'three'
@@ -8,6 +10,7 @@ import CameraManager from './camera/CameraManager'
 import ControlsManager from './controls/ControlsManager'
 import LightFactory from './lighting/LightFactory'
 import BuildVolume from './nodes/BuildVolume'
+import MeshNode from './nodes/MeshNode'
 import INode from './nodes/NodeInterface'
 import NodeManager from './nodes/NodeManager'
 
@@ -145,9 +148,24 @@ class AMJS {
 
     private _loadBehaviour(): void {
         if (this._config && this._config.detectMeshOutOfBuildVolume) {
-            this._controlsManager.onSelectedNodeTransformed.connect(
-                () => this._nodeManager.detectMeshOutOfBuildVolume())
+            this._controlsManager.onSelectedNodeTransformed.connect(this._markMeshOutsideBuildVolume.bind(this))
+            this._nodeManager.onMeshAdded.connect(this._markMeshOutsideBuildVolume.bind(this))
         }
+    }
+
+    // TODO: move function to a separate manager?
+    private _markMeshOutsideBuildVolume(): void {
+        const buildVolume = this._nodeManager.getBuildVolume()
+        const markedColor = new Color(1, .25, .25)
+        const markedMaterial = new MeshPhongMaterial({ color: markedColor, shininess: 25 })
+        this._nodeManager.getMeshChildren().forEach((node: MeshNode) => {
+            if (!node.isInBuildVolume(buildVolume)) {
+                node.setMaterial(markedMaterial)
+            } else {
+                node.resetMaterial()
+            }
+        })
+        this._render()
     }
 }
 

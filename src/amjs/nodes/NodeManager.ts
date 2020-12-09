@@ -1,14 +1,13 @@
 import {
     Camera,
-    Color,
     Light,
-    MeshPhongMaterial,
     Scene,
 } from 'three'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls'
 import Signal from '../../helpers/Signal'
 import StlImporter from '../files/StlImporter'
 import BuildVolume from './BuildVolume'
+import MeshNode from './MeshNode'
 import INode from './NodeInterface'
 import RootNode from './RootNode'
 
@@ -69,7 +68,6 @@ class NodeManager {
     public setBuildVolume(buildVolume: BuildVolume): void {
         this._buildVolumeNode = buildVolume
         this._rootNode.addChild(buildVolume)
-        this.detectMeshOutOfBuildVolume()
     }
 
     public render(): void {
@@ -80,17 +78,8 @@ class NodeManager {
         this._stlImporter.load(url)
     }
 
-    public detectMeshOutOfBuildVolume(): void {
-        for (const node of this._rootNode.getMeshChildren()) {
-            if (!node.isInBuildVolume(this._buildVolumeNode)) {
-                node.setMaterial(new MeshPhongMaterial({
-                    color: new Color(1, .25, .25),
-                    shininess: 25,
-                }))
-            } else {
-                node.resetMaterial()
-            }
-        }
+    public getMeshChildren(): MeshNode[] {
+        return this._rootNode.getMeshChildren()
     }
 
     private _meshImported(data: { node: INode }): void {
