@@ -6,7 +6,7 @@ import {
     Vector3,
 } from 'three'
 
-/** 
+/**
  * Factory class that creates lights with good default settings.
  */
 class LightFactory {
