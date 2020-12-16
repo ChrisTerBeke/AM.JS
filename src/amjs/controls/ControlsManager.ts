@@ -37,7 +37,7 @@ class ControlsManager {
     }
 
     public initControlsForNode(node: INode): void {
-        if (this._transformControls.object == node) {
+        if (this._transformControls.object === node) {
             return
         }
         if (node.getType() !== NODE_TYPES.MESH) {
