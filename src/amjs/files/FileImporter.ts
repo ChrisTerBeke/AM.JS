@@ -1,3 +1,4 @@
+import { Geometry } from 'three'
 import Signal from '../../helpers/Signal'
 import MeshNode from '../nodes/MeshNode'
 import INode from '../nodes/NodeInterface'
@@ -14,26 +15,26 @@ class FileImporter {
     public onMeshError: Signal<{error: ErrorEvent}> = new Signal()
     public onMeshProgress: Signal<{progress: ProgressEvent}> = new Signal()
 
-    private _loader: IFileLoader = null
+    protected _loader: IFileLoader = null
 
     constructor(loader: IFileLoader) {
         this._loader = loader
     }
 
-    public load(filename: string): void {
-        this._loader.load(filename, this._load.bind(this), this._progress.bind(this), this._error.bind(this))
+    public load(url: string): void {
+        this._loader.load(url, this._load.bind(this), this._progress.bind(this), this._error.bind(this))
     }
 
-    public _load(geometry): void {
+    protected _load(geometry: Geometry): void {
         const node = new MeshNode(geometry)
         this.onMeshImported.emit({ node })
     }
 
-    public _progress(progress: ProgressEvent): void {
+    protected _progress(progress: ProgressEvent): void {
         this.onMeshProgress.emit({ progress })
     }
 
-    public _error(error: ErrorEvent): void {
+    protected _error(error: ErrorEvent): void {
         this.onMeshError.emit({ error })
     }
 }

@@ -1,4 +1,7 @@
-import * as THREE from 'three'
+import {
+    Camera,
+    Vector3,
+} from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls'
 import Signal from '../../helpers/Signal'
@@ -28,20 +31,24 @@ class ControlsManager {
         this._canvas = canvas
     }
 
-    public initControlsForCamera(camera: THREE.Camera): void {
+    public initControlsForCamera(camera: Camera): void {
         this._initCameraControls(camera)
         this._initTransformControls(camera)
     }
 
-    public initControlsForNode(node?: INode): void {
-        if (!node) {
-            this._transformControls.detach()
+    public initControlsForNode(node: INode): void {
+        if (this._transformControls.object === node) {
             return
         }
         if (node.getType() !== NODE_TYPES.MESH) {
             return
         }
         this._transformControls.attach(node)
+        this.onTransformControlsChanged.emit()
+    }
+
+    public detachControls(): void {
+        this._transformControls.detach()
         this.onTransformControlsChanged.emit()
     }
 
@@ -65,16 +72,16 @@ class ControlsManager {
         this.onCameraControlsChanged.emit()
     }
 
-    public setCameraControlsTarget(target: THREE.Vector3): void {
+    public setCameraControlsTarget(target: Vector3): void {
         this._cameraControls.target.set(target.x, target.y, target.z)
     }
 
-    private _initCameraControls(camera: THREE.Camera): void {
+    private _initCameraControls(camera: Camera): void {
         this._cameraControls = new OrbitControls(camera, this._canvas)
         this._cameraControls.addEventListener('change', () => this.onCameraControlsChanged.emit())
     }
 
-    private _initTransformControls(camera: THREE.Camera): void {
+    private _initTransformControls(camera: Camera): void {
         this._transformControls = new TransformControls(camera, this._canvas)
         this._transformControls.setSize(2)
         this._transformControls.addEventListener('change', () => this.onTransformControlsChanged.emit())

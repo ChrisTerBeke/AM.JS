@@ -1,10 +1,17 @@
-import * as THREE from 'three'
+import {
+    Camera,
+    Color,
+    MeshPhongMaterial,
+    PCFSoftShadowMap,
+    WebGLRenderer,
+} from 'three'
 import generateUUID from '../helpers/generateUUID'
 import Signal from '../helpers/Signal'
 import CameraManager from './camera/CameraManager'
 import ControlsManager from './controls/ControlsManager'
 import LightFactory from './lighting/LightFactory'
 import BuildVolume from './nodes/BuildVolume'
+import MeshNode from './nodes/MeshNode'
 import INode from './nodes/NodeInterface'
 import NodeManager from './nodes/NodeManager'
 
@@ -36,7 +43,7 @@ class AMJS {
 
     // HTML canvas element to bind this instance to.
     private _canvas: HTMLCanvasElement
-    private _renderer: THREE.WebGLRenderer
+    private _renderer: WebGLRenderer
 
     // managers
     private _cameraManager: CameraManager
@@ -67,6 +74,14 @@ class AMJS {
         return this._canvas
     }
 
+    public getRenderer(): WebGLRenderer {
+        return this._renderer
+    }
+
+    public getCamera(): Camera {
+        return this._cameraManager.getCamera()
+    }
+
     public setConfig(config?: IAMJSConfig) {
         if (config) {
             this._config = config
@@ -75,9 +90,9 @@ class AMJS {
 
     public setCanvas(canvas: HTMLCanvasElement): void {
         this._canvas = canvas
-        this._renderer = new THREE.WebGLRenderer({ alpha: true, canvas: this._canvas })
+        this._renderer = new WebGLRenderer({ alpha: true, canvas: this._canvas })
         this._renderer.shadowMap.enabled = true
-        this._renderer.shadowMap.type = THREE.PCFSoftShadowMap
+        this._renderer.shadowMap.type = PCFSoftShadowMap
         this._renderer.setPixelRatio(window.devicePixelRatio ? window.devicePixelRatio : 1)
         this._renderer.setSize(this._canvas.width, this._canvas.height)
         this._renderer.setClearColor(0xffffff)
@@ -87,12 +102,20 @@ class AMJS {
         this._nodeManager.addNode(mesh)
     }
 
-    public loadStlFile(filename: string): void {
-        this._nodeManager.loadStlFile(filename)
+    public loadStlFile(url: string): void {
+        this._nodeManager.loadStlFile(url)
     }
 
     public selectMesh(mesh: INode): void {
         this._controlsManager.initControlsForNode(mesh)
+    }
+
+    public deselectMesh(): void {
+        this._controlsManager.detachControls()
+    }
+
+    public getMeshes(): MeshNode[] {
+        return this._nodeManager.getMeshChildren()
     }
 
     private _loadNodeManager(): void {
@@ -142,9 +165,24 @@ class AMJS {
 
     private _loadBehaviour(): void {
         if (this._config && this._config.detectMeshOutOfBuildVolume) {
-            this._controlsManager.onSelectedNodeTransformed.connect(
-                () => this._nodeManager.detectMeshOutOfBuildVolume())
+            this._controlsManager.onSelectedNodeTransformed.connect(this._markMeshOutsideBuildVolume.bind(this))
+            this._nodeManager.onMeshAdded.connect(this._markMeshOutsideBuildVolume.bind(this))
         }
+    }
+
+    // TODO: move function to a separate manager?
+    private _markMeshOutsideBuildVolume(): void {
+        const buildVolume = this._nodeManager.getBuildVolume()
+        const markedColor = new Color(1, .25, .25)
+        const markedMaterial = new MeshPhongMaterial({ color: markedColor, shininess: 25 })
+        this._nodeManager.getMeshChildren().forEach((node: MeshNode) => {
+            if (!node.isInBuildVolume(buildVolume)) {
+                node.setMaterial(markedMaterial)
+            } else {
+                node.resetMaterial()
+            }
+        })
+        this._render()
     }
 }
 

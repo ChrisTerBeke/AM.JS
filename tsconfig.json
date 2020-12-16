@@ -1,6 +1,7 @@
 {
     "compilerOptions": {
         "target": "es6",
+        "moduleResolution": "node",
         "allowJs": true,
         "esModuleInterop": true,
         "preserveConstEnums": true,

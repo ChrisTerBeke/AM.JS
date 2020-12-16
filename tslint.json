@@ -1,8 +1,13 @@
 {
     "defaultSeverity": "error",
-    "extends": [
-        "tslint:recommended"
-    ],
+    "extends": "tslint:recommended",
+    "linterOptions": {
+        "exclude": [
+            "dist/**/*",
+            "coverage/**/*",
+            "node_modules/**/*"
+        ]
+    },
     "jsRules": {},
     "rules": {
         "quotemark": {

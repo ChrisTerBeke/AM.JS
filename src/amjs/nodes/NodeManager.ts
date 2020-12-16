@@ -1,8 +1,13 @@
-import * as THREE from 'three'
+import {
+    Camera,
+    Light,
+    Scene,
+} from 'three'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls'
 import Signal from '../../helpers/Signal'
 import StlImporter from '../files/StlImporter'
 import BuildVolume from './BuildVolume'
+import MeshNode from './MeshNode'
 import INode from './NodeInterface'
 import RootNode from './RootNode'
 
@@ -30,15 +35,15 @@ class NodeManager {
         this._stlImporter.onMeshProgress.connect((data) => this.onMeshProgress.emit(data))
     }
 
-    public getScene(): THREE.Scene {
+    public getScene(): Scene {
         return this._rootNode.getScene()
     }
 
-    public addCamera(camera: THREE.Camera): void {
+    public addCamera(camera: Camera): void {
         this._rootNode.addCamera(camera)
     }
 
-    public addLight(light: THREE.Light): void {
+    public addLight(light: Light): void {
         this._rootNode.addLight(light)
     }
 
@@ -56,35 +61,25 @@ class NodeManager {
         this.onMeshRemoved.emit()
     }
 
-    public getBuildVolume(): BuildVolume {
+    public getBuildVolume(): BuildVolume | null {
         return this._buildVolumeNode
     }
 
     public setBuildVolume(buildVolume: BuildVolume): void {
         this._buildVolumeNode = buildVolume
         this._rootNode.addChild(buildVolume)
-        this.detectMeshOutOfBuildVolume()
     }
 
     public render(): void {
         this._rootNode.render()
     }
 
-    public loadStlFile(filename: string): void {
-        this._stlImporter.load(filename)
+    public loadStlFile(url: string): void {
+        this._stlImporter.load(url)
     }
 
-    public detectMeshOutOfBuildVolume(): void {
-        for (const node of this._rootNode.getMeshChildren()) {
-            if (!node.isInBuildVolume(this._buildVolumeNode)) {
-                node.setMaterial(new THREE.MeshPhongMaterial({
-                    color: new THREE.Color(1, .25, .25),
-                    shininess: 25,
-                }))
-            } else {
-                node.resetMaterial()
-            }
-        }
+    public getMeshChildren(): MeshNode[] {
+        return this._rootNode.getMeshChildren()
     }
 
     private _meshImported(data: { node: INode }): void {
